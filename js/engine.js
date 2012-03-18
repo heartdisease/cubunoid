@@ -40,6 +40,7 @@ var Cubunoid = function(id){
 	};
 	var rotX = -MAX_RAD/6.0;
 	var rotZ = 0.0;
+	var view = 0; // platform rotation in degrees
 	
 	this.initGL = function(){
 		gl = WebGLUtils.setupWebGL(canvas);
@@ -212,10 +213,15 @@ var Cubunoid = function(id){
 	};
 	
 	var rotate = function(){
-		if (rotZ < MAX_RAD)
+		if (view < 360) {
 			rotZ += Math.PI/4;
-		else
-			rotZ -= MAX_RAD;
+			view += 45;
+		} else {
+			rotZ = Math.PI/4;
+			view = 45;
+		}
+		
+		console.log("Rotation: " + view + "deg");
 	};
 	
 	this.mainLoop = function(){
@@ -227,7 +233,10 @@ var Cubunoid = function(id){
 		paintGL();
 	};
 	
+	/** HINT: Rendering is probably mirrored! */
 	this.eventHandler = function(action){
+		var dir;
+		
 		switch (action) {
 			case InputType.SPIN:
 				rotate();
@@ -244,10 +253,70 @@ var Cubunoid = function(id){
 				for (var i = 0; i < objects.boxes.length; ++i)
 					objects.boxes[i].selected = (i == 2);
 				break;
-			case InputType.K_LEFT: break;
-			case InputType.K_RIGHT: break;
-			case InputType.K_UP: break;
-			case InputType.K_DOWN: break;
+			case InputType.K_LEFT:
+				if (view <= 45 || view == 360)
+					dir = Direction.RIGHT;
+				else if (view <= 135)
+					dir = Direction.UP;
+				else if (view <= 225)
+					dir = Direction.LEFT;
+				else // view <= 315
+					dir = Direction.DOWN;
+				
+				for (var i = 0; i < objects.boxes.length; ++i)
+				{
+					if (objects.boxes[i].selected)
+						shiftBox(objects.boxes[i], dir);
+				}
+				break;
+			case InputType.K_RIGHT:
+				if (view <= 45 || view == 360)
+					dir = Direction.LEFT; // right
+				else if (view <= 135)
+					dir = Direction.DOWN; // up
+				else if (view <= 225)
+					dir = Direction.RIGHT; // left
+				else // view <= 315
+					dir = Direction.UP; // down
+				
+				for (var i = 0; i < objects.boxes.length; ++i)
+				{
+					if (objects.boxes[i].selected)
+						shiftBox(objects.boxes[i], dir);
+				}
+				break;
+			case InputType.K_UP:
+				if (view <= 45 || view == 360)
+					dir = Direction.UP;
+				else if (view <= 135)
+					dir = Direction.LEFT;
+				else if (view <= 225)
+					dir = Direction.DOWN;
+				else // view <= 315
+					dir = Direction.RIGHT;
+				
+				for (var i = 0; i < objects.boxes.length; ++i)
+				{
+					if (objects.boxes[i].selected)
+						shiftBox(objects.boxes[i], dir);
+				}
+				break;
+			case InputType.K_DOWN:
+				if (view <= 45 || view == 360)
+					dir = Direction.DOWN;
+				else if (view <= 135)
+					dir = Direction.RIGHT;
+				else if (view <= 225)
+					dir = Direction.UP;
+				else // view <= 315
+					dir = Direction.LEFT;
+				
+				for (var i = 0; i < objects.boxes.length; ++i)
+				{
+					if (objects.boxes[i].selected)
+						shiftBox(objects.boxes[i], dir);
+				}
+				break;
 		}
 	};
 	
@@ -278,5 +347,14 @@ var Cubunoid = function(id){
 		// generate trigger
 		for (i = 0; i < map.switches.length; ++i)
 			objects.trigger.push(new GameObject("trigger" + i, meshes.trigger, map.switches[i].x, map.switches[i].y));
+			
+		// see logic.js
+		level = {
+			width:    map.width,
+			height:   map.height,
+			boxes:    objects.boxes,
+			concrete: objects.concrete,
+			switches: objects.trigger
+		};
 	};
 };

@@ -186,22 +186,22 @@ function shiftBox(box, dir) {
 		switch (dir) {
 			case Direction.UP:
 				box.y               = target + 1;
-				box.node.style.top  = (TILE_SIZE * box.y) + "px";
+				//box.node.style.top  = (TILE_SIZE * box.y) + "px";
 				console.log("move box on Y axis to " + box.y + ".");
 				break;
 			case Direction.DOWN:
 				box.y               = target - 1;
-				box.node.style.top  = (TILE_SIZE * box.y) + "px";
+				//box.node.style.top  = (TILE_SIZE * box.y) + "px";
 				console.log("move box on Y axis to " + box.y + ".");
 				break;
 			case Direction.LEFT:
 				box.x               = target + 1;
-				box.node.style.left = (TILE_SIZE * box.x) + "px";
+				//box.node.style.left = (TILE_SIZE * box.x) + "px";
 				console.log("move box on X axis to " + box.x + ".");
 				break;
 			case Direction.RIGHT:
 				box.x               = target - 1;
-				box.node.style.left = (TILE_SIZE * box.x) + "px";
+				//box.node.style.left = (TILE_SIZE * box.x) + "px";
 				console.log("move box on X axis to " + box.x + ".");
 				break;
 		}

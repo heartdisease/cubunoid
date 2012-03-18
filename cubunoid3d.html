@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Cubunoid Demo Program 0.2</title>
+		<script src="js/utils/webgl-utils.js" type="text/javascript"></script>
+		<script src="js/utils/gl-matrix-min.js" type="text/javascript"></script>
+		<script src="js/geometry.js" type="text/javascript"></script>
+		<script src="js/input.js" type="text/javascript"></script>
+		<script src="js/logic.js" type="text/javascript"></script>
+		<script src="js/engine.js" type="text/javascript"></script>
+		<script id="shader-vs" type="x-shader/x-vertex">
+			// Per-Pixel Lighting
+			// http://msdn.microsoft.com/en-us/library/ms810494
+			precision mediump float;
+			
+			attribute vec3 aVertex;
+			attribute vec3 aNormal;
+			attribute vec2 aTexCoord;
+
+			uniform mat4 uNMatrix;
+			uniform mat4 uMvMatrix;
+			uniform mat4 uMvpMatrix;
+			uniform bool uUseTexture;
+			
+			vec3 eyePos = vec3(0.0, 0.0, 0.0);
+			
+			varying vec4 vColor;
+			varying vec3 vNormal;
+			varying vec2 vTexCoord;
+			varying vec3 vEye;
+			
+			void main(void) {
+				vColor      = vec4(aNormal, 1.0);
+				vNormal     = normalize((uNMatrix * vec4(aNormal, 1.0)).xyz);
+				vEye        = normalize((uMvMatrix * vec4(eyePos, 1.0)).xyz);
+				if (uUseTexture)
+					vTexCoord = aTexCoord;
+				
+				gl_Position = uMvpMatrix * vec4(aVertex, 1.0);
+			}
+		</script>
+		<script id="shader-fs-phong" type="x-shader/x-fragment">
+			// http://www.arcsynthesis.org/gltut/Illumination/Tut11%20BlinnPhong%20Model.html
+			// http://www.opengl.org/sdk/docs/tutorials/ClockworkCoders/lighting.php
+			precision mediump float;
+			
+			struct LightSource {
+				vec4 ambient;
+				vec4 diffuse;
+				vec4 specular;
+				vec3 position;
+			};
+			
+			struct Material {
+				vec4 ambient;
+				vec4 diffuse;
+				vec4 specular;
+				float shininess;
+			};
+			
+			LightSource light0 = LightSource(
+				vec4(0.8, 0.8, 0.8, 1.0),
+				vec4(1.0, 1.0, 1.0, 1.0),
+				vec4(0.5, 0.5, 0.5, 1.0),
+				vec3(1.0, 1.0, 1.0)
+			);
+			
+			Material mat = Material(
+				vec4(1.0, 1.0, 1.0, 1.0),
+				vec4(0.5, 0.5, 0.5, 1.0),
+				vec4(1.0, 1.0, 1.0, 1.0),
+				8.0
+			);
+			
+			vec4 phong(vec4 color, vec3 normal, vec3 eyePos) {
+				vec3 normPos      = normalize(light0.position);
+				float LambertTerm = dot(normal, normPos);
+				vec3 reflection   = reflect(-normPos, normal);
+				
+				vec4 Ia = light0.ambient * mat.ambient;
+				vec4 Id = light0.diffuse * mat.diffuse * LambertTerm;
+				vec4 Is = mat.specular * light0.specular * pow(max(dot(reflection, eyePos), 0.0), mat.shininess);
+				vec4 If = (Ia + Id + Is);
+				
+				return (color * If);
+			}
+		</script>
+		<script id="shader-fs" type="x-shader/x-fragment">
+			precision mediump float;
+			
+			#import <shader-fs-phong>
+			
+			varying vec4 vColor;
+			varying vec3 vNormal;
+			varying vec2 vTexCoord;
+			varying vec3 vEye;
+			
+			uniform sampler2D uSampler;
+			uniform bool uUseTexture;
+			uniform bool uHighlight;
+			
+			void main(void) {
+				vec4 color   = uUseTexture ? texture2D(uSampler, vTexCoord) : vColor;
+				
+				gl_FragColor = phong(uHighlight ? (vec4(2.0, 2.0, 2.0, 1.0) * color) : color, vNormal, vEye);
+				//gl_FragData[]
+			}
+		</script>
+		<script type="text/javascript">			
+			// AMBIENT OCCLUSION! http://www.ozone3d.net/tutorials/ambient_occlusion.php#part_1
+			
+			window.onload = function() {
+				/*c = document.getElementById("canvas");
+				initMap(map1);*/
+				
+				var game = new Cubunoid("glcanvas");
+				game.initGL();
+				game.resizeGL();
+				game.attachShader("shader-vs");
+				game.attachShader("shader-fs", "shader-fs-phong");
+				game.loadMap(map5);
+				game.mainLoop();
+			};
+		</script>
+		<style>
+			body {
+				text-align: center;
+				margin: 0;
+			}
+			
+			#canvas {
+				position: relative;
+				background-image: url(ice.jpg);
+				text-align: left;
+			}
+			
+			#glcanvas {
+				position: absolute;
+				top: 0; left: 0;
+				width: 100%; height: 100%;
+				z-index: 3;
+			}
+			
+			.switch {
+				background: gold;
+				border-radius: 25px;
+			}
+			
+			.box {
+				background: brown;
+				border: 1px solid #eee;
+			}
+			
+			.obstacle {
+				background: #969696;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="glcanvas">
+			Your browser does not support the &lt;canvas&gt; element!
+		</canvas>
+		
+		<!--<div id="canvas"></div>
+		<div style="position: absolute; float: left;">
+			<button onclick="initMap(map1);">Load map 1</button>
+			<button onclick="initMap(map2);">Load map 2</button>
+			<button onclick="initMap(map3);">Load map 3</button>
+			<button onclick="initMap(map4);">Load map 4</button>
+			<button onclick="initMap(map5);">Load map 5</button>
+		</div>-->
+	</body>
+</html>

@@ -103,6 +103,8 @@
 				vec4 color   = uUseTexture ? texture2D(uSampler, vTexCoord) : vColor;
 				
 				gl_FragColor = phong(uHighlight ? (vec4(2.0, 2.0, 2.0, 1.0) * color) : color, vNormal, vEye);
+				//gl_FragColor = vec4(vTexCoord.s, vTexCoord.t, 0.0, 1.0);
+				
 				//gl_FragData[]
 			}
 		</script>

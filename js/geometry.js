@@ -23,7 +23,7 @@ var Texture = function(src, gl){
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 			gl.generateMipmap(gl.TEXTURE_2D);
 			gl.bindTexture(gl.TEXTURE_2D, null);
@@ -79,37 +79,75 @@ var Mesh = function(){ // dirty solution! no proper separation
 				vertices[vi+1] = tmp[1];
 				vertices[vi+2] = tmp[2];
 				
-				switch (elements[y][x]) {
-					case 0: case 4:
-						texCoords[ti+0] = 0.0;
-						texCoords[ti+1] = 1.0;
-						break;
-					case 1: case 5:
-						texCoords[ti+0] = 1.0;
-						texCoords[ti+1] = 1.0;
-						break;
-					case 2: case 6:
-						texCoords[ti+0] = 1.0;
-						texCoords[ti+1] = 0.0;
-						break;
-					case 3: case 7:
-						texCoords[ti+0] = 0.0;
-						texCoords[ti+1] = 0.0;
-						break;
-				}
-				
-				if (y < 4) {
+				if (y < 4) { // front and back face
 					normals[vi+0] = 0.0;
 					normals[vi+1] = 0.0;
 					normals[vi+2] = (y < 2) ? 1.0 : -1.0;
-				} else if (y < 8) {
+					
+					switch (elements[y][x]) {
+						case 0: case 4:
+							texCoords[ti+0] = 0.0;
+							texCoords[ti+1] = 1.0;
+							break;
+						case 1: case 5:
+							texCoords[ti+0] = 1.0;
+							texCoords[ti+1] = 1.0;
+							break;
+						case 2: case 6:
+							texCoords[ti+0] = 1.0;
+							texCoords[ti+1] = 0.0;
+							break;
+						case 3: case 7:
+							texCoords[ti+0] = 0.0;
+							texCoords[ti+1] = 0.0;
+							break;
+					}
+				} else if (y < 8) { // left and right face
 					normals[vi+0] = (y < 6) ? -1.0 : 1.0;
 					normals[vi+1] = 0.0;
 					normals[vi+2] = 0.0;
-				} else { // y < 12
+					
+					switch (elements[y][x]) {
+						case 4: case 5:
+							texCoords[ti+0] = 0.0;
+							texCoords[ti+1] = 1.0;
+							break;
+						case 0: case 1:
+							texCoords[ti+0] = 1.0;
+							texCoords[ti+1] = 1.0;
+							break;
+						case 7: case 6:
+							texCoords[ti+0] = 0.0;
+							texCoords[ti+1] = 0.0;
+							break;
+						case 3: case 2:
+							texCoords[ti+0] = 1.0;
+							texCoords[ti+1] = 0.0;
+							break;
+					}
+				} else { // y < 12 (top and bottom face)
 					normals[vi+0] = 0.0;
 					normals[vi+1] = (y < 10) ? 1.0 : -1.0;
 					normals[vi+2] = 0.0;
+					
+					switch (elements[y][x]) {
+						case 4: case 7:
+							texCoords[ti+0] = 0.0;
+							texCoords[ti+1] = 1.0;
+							break;
+						case 5: case 6:
+							texCoords[ti+0] = 1.0;
+							texCoords[ti+1] = 1.0;
+							break;
+						case 0: case 3:
+							texCoords[ti+0] = 0.0;
+							texCoords[ti+1] = 0.0;
+							break;
+						case 1: case 2:
+							texCoords[ti+0] = 1.0;
+							texCoords[ti+1] = 0.0;
+							break;
+					}
 				}
 				
 				vi += 3;

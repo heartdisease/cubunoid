@@ -142,6 +142,26 @@ function getClosest(box, obstacles, limit, dir) {
 	return obj;
 }
 
+function isGameOver() {
+	var check;
+	for (var si = 0; si < level.switches.length; ++si) {
+		check = false;
+		for (var bi = 0; bi < level.boxes.length; ++bi) {
+			if (
+				(level.switches[si].x == level.boxes[bi].x) &&
+				(level.switches[si].y == level.boxes[bi].y)
+			) {
+				check = true;
+				break;
+			}
+		}
+		if (!check)
+			return false;
+	}
+	
+	return true;
+};
+
 function shiftBox(box, dir) {
 	var field, target = 0;
 	

@@ -13,6 +13,10 @@ var Texture = function(src, gl){
 	var image   = new Image();
 	var texture = gl.createTexture();
 	
+	this.dispose = function(){
+		gl.deleteTexture(texture);
+	};
+	
 	image.addEventListener(
 		"load",
 		function(){
@@ -170,6 +174,13 @@ var Mesh = function(){ // dirty solution! no proper separation
 	
 	this.setTexture = function(src, gl){
 		this.texture = new Texture(src, gl);
+	};
+	
+	/** Frees all WebGL resources (except textures!) */
+	this.dispose = function(gl){
+		gl.deleteBuffer(this.vertexBuffer);
+		gl.deleteBuffer(this.normalBuffer);
+		gl.deleteBuffer(this.texCoordBuffer);
 	};
 	
 	// construction code

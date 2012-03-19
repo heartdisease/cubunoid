@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Cubunoid Demo Program 0.5</title>
+		<title>Cubunoid Demo Program 0.9</title>
 		<script src="js/utils/webgl-utils.js" type="text/javascript"></script>
 		<script src="js/utils/gl-matrix-min.js" type="text/javascript"></script>
 		<script src="js/geometry.js" type="text/javascript"></script>
@@ -102,28 +102,13 @@
 			void main(void) {
 				vec4 color   = uUseTexture ? texture2D(uSampler, vTexCoord) : vColor;
 				
-				gl_FragColor = phong(uHighlight ? (vec4(3.0, 2.0, 2.0, 1.0) * color) : color, vNormal, vEye);
+				gl_FragColor = phong(uHighlight ? (vec4(10.0, 1.2, 1.2, 1.0) * color) : color, vNormal, vEye);
 				//gl_FragColor = vec4(vTexCoord.s, vTexCoord.t, 0.0, 1.0);
 				
 				//gl_FragData[]
 			}
 		</script>
-		<script type="text/javascript">			
-			// AMBIENT OCCLUSION! http://www.ozone3d.net/tutorials/ambient_occlusion.php#part_1
-			
-			window.onload = function() {
-				/*c = document.getElementById("canvas");
-				initMap(map1);*/
-				
-				var game = new Cubunoid("glcanvas");
-				game.initGL();
-				game.resizeGL();
-				game.attachShader("shader-vs");
-				game.attachShader("shader-fs", "shader-fs-phong");
-				game.loadMap(map2);
-				game.mainLoop();
-			};
-		</script>
+		<script src="js/game.js" type="text/javascript"></script>
 		<style>
 			body {
 				text-align: center;

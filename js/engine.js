@@ -3,18 +3,25 @@
 // * include textures
 // * implement picking with multiple render targets and frame- and renderbuffers
 
-var MAX_RAD = Math.PI * 2;
+var DEG45_RAD  = Math.PI / 4;
+var DEG135_RAD = DEG45_RAD * 3;
+var DEG225_RAD = DEG45_RAD * 5;
+var DEG315_RAD = DEG45_RAD * 7;
+var MAX_RAD    = Math.PI * 2;
 
 var Cubunoid = function(id){
 	var canvas    = document.getElementById(id);
 	var input     = null;
 	var gl        = null;
+	var active    = false; // true = render loop is currently running
 	var shaders   = new Array();
 	var program   = null;
 	var pMatrix   = mat4.create(); // projection matrix
 	var nMatrix   = mat4.create(); // normal matrix
 	var mvMatrix  = mat4.create(); // model-view matrix
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
+	var level     = 0;
+	var levels    = [map1, map2, map3, map4, map5];
 	var shaderVariables = {
 		aVertex:       -1,
 		aNormal:       -1,
@@ -39,8 +46,7 @@ var Cubunoid = function(id){
 		concrete: new Array()
 	};
 	var rotX = -MAX_RAD/9.0;
-	var rotZ = Math.PI/4;
-	var view = 45; // platform rotation in degrees
+	var rotZ = 0.0;
 	
 	this.initGL = function(){
 		gl = WebGLUtils.setupWebGL(canvas);
@@ -129,7 +135,7 @@ var Cubunoid = function(id){
 				yOffset = (objects.platform.mesh.height / 2) - array[i].y - halfBoxSize;
 			
 				mat4.set(modelView1, modelView2);	// copy local model-view matrix
-				mat4.translate(modelView2, [xOffset, 0.0, 0.0]);
+				mat4.translate(modelView2, [-xOffset, 0.0, 0.0]);
 				mat4.translate(modelView2, [0.0, yOffset, 0.0]);
 			
 				uploadMatrices(modelView2, false);
@@ -139,8 +145,10 @@ var Cubunoid = function(id){
 	};
 	
 	var paintGL = function(){
-		window.setTimeout(function(){ window.requestAnimFrame(paintGL); }, 30);
-		//window.requestAnimFrame(paintGL);
+		if (active) {
+			window.setTimeout(function(){ window.requestAnimFrame(paintGL); }, 30);
+			//window.requestAnimFrame(paintGL);
+		}
 		
 		// clear framebuffer
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -172,7 +180,7 @@ var Cubunoid = function(id){
 		if (altId)
 			shaderSource = shaderSource.replace("#import <"+altId+">", document.getElementById(altId).innerHTML);
 		
-		console.log("Shader source: " + shaderSource);
+		//console.log("Shader source: " + shaderSource);
 		
 		gl.shaderSource(shader, shaderSource);
 		gl.compileShader(shader);
@@ -212,25 +220,41 @@ var Cubunoid = function(id){
 		gl.enableVertexAttribArray(shaderVariables.aNormal);
 	};
 	
-	var rotate = function(){
-		if (view < 360) {
-			rotZ += Math.PI/4;
-			view += 45;
-		} else {
-			rotZ = Math.PI/4;
-			view = 45;
-		}
-		
-		console.log("Rotation: " + view + "deg");
+	var getPositionCode = function(){
+		if (rotZ >= DEG315_RAD || rotZ <= DEG45_RAD)
+			return 0;
+		else if (rotZ <= DEG135_RAD)
+			return 1;
+		else if (rotZ <= DEG225_RAD)
+			return 2;
+		else // rotZ <= DEG315_RAD
+			return 3;
 	};
 	
-	this.mainLoop = function(){
-		var animation;
+	var rotate = function(rz, rx){
+		if (rotZ >= MAX_RAD) {
+			rotZ -= MAX_RAD - rz;
+			//console.log("Hop back to: " + rotZ);
+		} else if (rotZ <= 0.0) {
+			rotZ += MAX_RAD - rz;
+			//console.log("Hop back to: " + rotZ);
+		} else {
+			rotZ += rz;
+		}
 		
+		if (rotX >= MAX_RAD)
+			rotX -= MAX_RAD - rx;
+		else if (rotZ <= 0.0)
+			rotX += MAX_RAD - rx;
+		else
+			rotX += rx;
+		
+		//console.log("Rotation: " + rotZ + "rad (" + (rotZ/MAX_RAD*360) + " deg)");
+	};
+	
+	this.useProgram = function(){
 		linkProgram();
 		getShaderVariables();
-		//animation = window.setInterval(rotate, 33);
-		paintGL();
 	};
 	
 	/** HINT: Rendering is probably mirrored! */
@@ -253,15 +277,13 @@ var Cubunoid = function(id){
 				for (var i = 0; i < objects.boxes.length; ++i)
 					objects.boxes[i].selected = (i == 2);
 				break;
-			case InputType.K_LEFT:
-				if (view <= 45 || view == 360)
-					dir = Direction.RIGHT;
-				else if (view <= 135)
-					dir = Direction.UP;
-				else if (view <= 225)
-					dir = Direction.LEFT;
-				else // view <= 315
-					dir = Direction.DOWN;
+			case InputType.K_LEFT:				
+				switch (getPositionCode()) {
+					case 0: dir = Direction.LEFT; break;
+					case 1: dir = Direction.UP; break;
+					case 2: dir = Direction.RIGHT; break;
+					case 3: dir = Direction.DOWN; break;
+				};
 				
 				for (var i = 0; i < objects.boxes.length; ++i)
 				{
@@ -270,14 +292,12 @@ var Cubunoid = function(id){
 				}
 				break;
 			case InputType.K_RIGHT:
-				if (view <= 45 || view == 360)
-					dir = Direction.LEFT; // right
-				else if (view <= 135)
-					dir = Direction.DOWN; // up
-				else if (view <= 225)
-					dir = Direction.RIGHT; // left
-				else // view <= 315
-					dir = Direction.UP; // down
+				switch (getPositionCode()) {
+					case 0: dir = Direction.RIGHT; break;
+					case 1: dir = Direction.DOWN; break;
+					case 2: dir = Direction.LEFT; break;
+					case 3: dir = Direction.UP; break;
+				};
 				
 				for (var i = 0; i < objects.boxes.length; ++i)
 				{
@@ -286,14 +306,12 @@ var Cubunoid = function(id){
 				}
 				break;
 			case InputType.K_UP:
-				if (view <= 45 || view == 360)
-					dir = Direction.UP;
-				else if (view <= 135)
-					dir = Direction.LEFT;
-				else if (view <= 225)
-					dir = Direction.DOWN;
-				else // view <= 315
-					dir = Direction.RIGHT;
+				switch (getPositionCode()) {
+					case 0: dir = Direction.UP; break;
+					case 1: dir = Direction.RIGHT; break;
+					case 2: dir = Direction.DOWN; break;
+					case 3: dir = Direction.LEFT; break;
+				};
 				
 				for (var i = 0; i < objects.boxes.length; ++i)
 				{
@@ -302,14 +320,12 @@ var Cubunoid = function(id){
 				}
 				break;
 			case InputType.K_DOWN:
-				if (view <= 45 || view == 360)
-					dir = Direction.DOWN;
-				else if (view <= 135)
-					dir = Direction.RIGHT;
-				else if (view <= 225)
-					dir = Direction.UP;
-				else // view <= 315
-					dir = Direction.LEFT;
+				switch (getPositionCode()) {
+					case 0: dir = Direction.DOWN; break;
+					case 1: dir = Direction.LEFT; break;
+					case 2: dir = Direction.UP; break;
+					case 3: dir = Direction.RIGHT; break;
+				};
 				
 				for (var i = 0; i < objects.boxes.length; ++i)
 				{
@@ -318,49 +334,71 @@ var Cubunoid = function(id){
 				}
 				break;
 		}
+		
+		// check if player has completed level
+		if (isGameOver()) {
+			window.alert("Level complete!");
+			if (level+1 >= levels.length)
+				window.alert("Congratulations! You've mastered all quests!");
+			else
+				loadMap(++level);
+		}
 	};
 	
 	this.mouseHandler = function(xOffset, yOffset){
-		//console.log("x offset: " + xOffset + ", y offset: " + yOffset);
-		rotZ -= xOffset / 400;
-		rotX -= yOffset / 400;
+		rotate((-xOffset/400), (-yOffset/400));
 	};
 	
-	this.loadMap = function(map){
+	var loadMap = this.loadMap = function(level){
 		var i;
+		var map = levels[level];
 		
+		active = false; // disable rendering
 		console.log("Create platform " + map.width + "x" + map.height);
 		
 		// generate geometry
-		meshes.platform = new Platform(gl, map.width, map.height);
-		meshes.box      = new Box(gl);
-		meshes.concrete = new Concrete(gl);
-		meshes.trigger  = new Trigger(gl);
-		
-		meshes.platform.setTexture("textures/ice.jpg", gl);
-		meshes.box.setTexture("textures/wood.jpg", gl);
-		meshes.concrete.texture = meshes.platform.texture;
-		meshes.trigger.setTexture("textures/metalfloor.jpg", gl);
+		if (!meshes.box) {
+			meshes.box = new Box(gl);
+			meshes.box.setTexture("textures/wood.jpg", gl);
+		}
+		if (!meshes.concrete) {
+			meshes.concrete = new Concrete(gl);
+			meshes.concrete.setTexture("textures/ice.jpg", gl);
+		}
+		if (!meshes.trigger) {
+			meshes.trigger = new Trigger(gl);
+			meshes.trigger.setTexture("textures/metalfloor.jpg", gl);
+		}
+		if (meshes.platform)
+			meshes.platform.dispose(gl);
+		meshes.platform         = new Platform(gl, map.width, map.height);
+		meshes.platform.texture = meshes.concrete.texture;
 		
 		// generate platform
 		objects.platform = new GameObject("platform", meshes.platform, 0.0, 0.0);
 		// generate boxes
+		objects.boxes.splice(0, objects.boxes.length);
 		for (i = 0; i < map.boxes.length; ++i)
 			objects.boxes.push(new GameObject("box" + i, meshes.box, map.boxes[i].x, map.boxes[i].y));
 		// generate misc obstacles
+		objects.concrete.splice(0, objects.concrete.length);
 		for (i = 0; i < map.concrete.length; ++i)
 			objects.concrete.push(new GameObject("concrete" + i, meshes.concrete, map.concrete[i].x, map.concrete[i].y));
 		// generate trigger
+		objects.trigger.splice(0, objects.trigger.length);
 		for (i = 0; i < map.switches.length; ++i)
 			objects.trigger.push(new GameObject("trigger" + i, meshes.trigger, map.switches[i].x, map.switches[i].y));
 			
-		// see logic.js
-		level = {
+		// see logic.js (LEGACY!)
+		window.level = {
 			width:    map.width,
 			height:   map.height,
 			boxes:    objects.boxes,
 			concrete: objects.concrete,
 			switches: objects.trigger
 		};
+		
+		active = true; // enable rendering
+		paintGL();     // start render loop
 	};
 };

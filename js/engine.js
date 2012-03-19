@@ -38,9 +38,9 @@ var Cubunoid = function(id){
 		trigger:  new Array(),
 		concrete: new Array()
 	};
-	var rotX = -MAX_RAD/6.0;
-	var rotZ = 0.0;
-	var view = 0; // platform rotation in degrees
+	var rotX = -MAX_RAD/9.0;
+	var rotZ = Math.PI/4;
+	var view = 45; // platform rotation in degrees
 	
 	this.initGL = function(){
 		gl = WebGLUtils.setupWebGL(canvas);
@@ -53,7 +53,7 @@ var Cubunoid = function(id){
     	gl.enable(gl.DEPTH_TEST);
     	
 		window.addEventListener("resize", this.resizeGL, false);
-		input = new InputManager(this.eventHandler);
+		input = new InputManager(this.eventHandler, this.mouseHandler);
 	};
 	
 	this.resizeGL = function(){
@@ -139,7 +139,7 @@ var Cubunoid = function(id){
 	};
 	
 	var paintGL = function(){
-		window.setTimeout(function(){ window.requestAnimFrame(paintGL); }, 100);
+		window.setTimeout(function(){ window.requestAnimFrame(paintGL); }, 30);
 		//window.requestAnimFrame(paintGL);
 		
 		// clear framebuffer
@@ -318,6 +318,12 @@ var Cubunoid = function(id){
 				}
 				break;
 		}
+	};
+	
+	this.mouseHandler = function(xOffset, yOffset){
+		//console.log("x offset: " + xOffset + ", y offset: " + yOffset);
+		rotZ -= xOffset / 400;
+		rotX -= yOffset / 400;
 	};
 	
 	this.loadMap = function(map){

@@ -9,37 +9,63 @@ var InputType = {
 	K_DOWN:  7
 };
 
-var InputManager = function(func){
-	var eventHandler = func;
+var InputManager = function(kh, mh){
+	var keyHandler = kh;
+	var mouseHandler = mh;
+	var drag = false;
+	var lastPos = {x: -1, y: -1};
 	
 	var keyListener = function(e){
 		switch (e.keyCode) {
 			case 32: // space
-				eventHandler(InputType.SPIN);
+				keyHandler(InputType.SPIN);
 				break;
 			case 97: case 49: // key 1
-				eventHandler(InputType.BOX1);
+				keyHandler(InputType.BOX1);
 				break;
 			case 98: case 50: // key 2
-				eventHandler(InputType.BOX2);
+				keyHandler(InputType.BOX2);
 				break;
 			case 99: case 51: // key 3
-				eventHandler(InputType.BOX3);
+				keyHandler(InputType.BOX3);
 				break;
 			case 37: // key left
-				eventHandler(InputType.K_LEFT);
+				keyHandler(InputType.K_LEFT);
 				break;
 			case 39: // key right
-				eventHandler(InputType.K_RIGHT);
+				keyHandler(InputType.K_RIGHT);
 				break;
 			case 38: // key up
-				eventHandler(InputType.K_UP);
+				keyHandler(InputType.K_UP);
 				break;
 			case 40: // key down
-				eventHandler(InputType.K_DOWN);
+				keyHandler(InputType.K_DOWN);
 				break;
 		}
 	};
 	
+	var mouseDownListener = function(e){
+		lastPos.x = e.pageX;
+		lastPos.y = e.pageY;
+		drag = true;
+	};
+	
+	var mouseMoveListener = function(e){
+		if (drag) {
+			mouseHandler(lastPos.x - e.pageX, lastPos.y - e.pageY);
+			
+			lastPos.x = e.pageX;
+			lastPos.y = e.pageY;
+		}
+	};
+	
+	var mouseUpListener = function(e){
+		drag = false;
+	};
+	
 	window.addEventListener("keydown", keyListener, false);
+	window.addEventListener("mousedown", mouseDownListener, false);
+	window.addEventListener("mousemove", mouseMoveListener, false);
+	window.addEventListener("mouseup", mouseUpListener, false);
+	
 };

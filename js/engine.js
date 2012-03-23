@@ -1,7 +1,7 @@
 /// TODO
-// * implement phong-blinn lighting
-// * include textures
-// * implement picking with multiple render targets and frame- and renderbuffers
+// * improve phong-blinn lighting
+
+// OpenGL Framebuffers: http://www.swiftless.com/tutorials/opengl/framebuffer.html (!!)
 
 var DEG45_RAD  = Math.PI / 4;
 var DEG135_RAD = DEG45_RAD * 3;
@@ -14,6 +14,7 @@ var Cubunoid = function(id){
 	var input     = null;
 	var gl        = null;
 	var active    = false; // true = render loop is currently running
+	var picking   = false; // true = need to check which object has been clicked at by user
 	var shaders   = new Array();
 	var program   = null;
 	var pMatrix   = mat4.create(); // projection matrix
@@ -21,17 +22,26 @@ var Cubunoid = function(id){
 	var mvMatrix  = mat4.create(); // model-view matrix
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
 	var level     = 0;
-	var levels    = [map1, map2, map3, map4, map5];
+	var levels    = [map1, map2, map3, map4, map5, map6];
 	var shaderVariables = {
 		aVertex:       -1,
 		aNormal:       -1,
 		aTexCoord:     -1,
 		uUseTexture: null,
+		uUsePicking: null,
 		uHighlight:  null,
 		uSampler:    null,
+		uBoxId:      null,
 		uNMatrix:    null,
 		uMvMatrix:   null,
 		uMvpMatrix:  null
+	};
+	var pickingBuffer = {
+		frameBuffer:  null,
+		renderBuffer: null,
+		texture:      null,
+		pickX:           0,
+		pickY:           0
 	};
 	var meshes = { // geometry for game objects
 		platform: null,
@@ -47,9 +57,10 @@ var Cubunoid = function(id){
 	};
 	var rotX = -MAX_RAD/9.0;
 	var rotZ = 0.0;
+	var zDistance = 0.0;
 	
 	this.initGL = function(){
-		gl = WebGLUtils.setupWebGL(canvas);
+		gl = WebGLUtils.setupWebGL(canvas, {preserveDrawingBuffer: true}); // option needed for gl.readPixels
 		if (!gl) {
 			window.alert("Fatal error: cannot initialize WebGL context!");
 			return;
@@ -58,8 +69,37 @@ var Cubunoid = function(id){
 		gl.clearColor(0.0, 0.0, 0.0, 1.0);
     	gl.enable(gl.DEPTH_TEST);
     	
+		gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+		gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
+    	
 		window.addEventListener("resize", this.resizeGL, false);
-		input = new InputManager(this.eventHandler, this.mouseHandler);
+		input = new InputManager(this.eventHandler, this.mouseHandler, this.pickHandler);
+	};
+	
+	this.initPickingBuffer = function(){
+		// create frame buffer
+		pickingBuffer.frameBuffer  = gl.createFramebuffer();
+		gl.bindFramebuffer(gl.FRAMEBUFFER, pickingBuffer.frameBuffer);
+		gl.viewport(0, 0, canvas.width, canvas.height); // set viewport for framebuffer
+		
+		// create render buffer
+		pickingBuffer.renderBuffer = gl.createRenderbuffer();
+		gl.bindRenderbuffer(gl.RENDERBUFFER, pickingBuffer.renderBuffer);		
+		
+		// create texture to render to
+		pickingBuffer.texture = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, pickingBuffer.texture);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		
+		// configure render buffer and apply it to frame buffer
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, canvas.width, canvas.height);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pickingBuffer.texture, 0);
+		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, pickingBuffer.renderBuffer);
+		
+		// unbind buffers and texture
+		gl.bindTexture(gl.TEXTURE_2D, null);
+		gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	};
 	
 	this.resizeGL = function(){
@@ -68,6 +108,10 @@ var Cubunoid = function(id){
 		
 		console.log("Set viewport to " + canvas.width + "x" + canvas.height);
 		gl.viewport(0, 0, canvas.width, canvas.height);
+		// resize viewport for frame buffer too
+		gl.bindFramebuffer(gl.FRAMEBUFFER, pickingBuffer.frameBuffer);
+		gl.viewport(0, 0, canvas.width, canvas.height);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		
 		mat4.perspective(45, canvas.width/canvas.height, 0.1, 100.0, pMatrix);
 	};
@@ -86,6 +130,9 @@ var Cubunoid = function(id){
 	};
 	
 	var drawObject = function(obj){
+		// send object ID to shader in picking mode
+		if (picking)
+			gl.uniform4fv(shaderVariables.uBoxId, obj.colorID);
 		// activate vertex buffer
 		gl.bindBuffer(gl.ARRAY_BUFFER, obj.mesh.vertexBuffer);
 		gl.vertexAttribPointer(shaderVariables.aVertex, obj.mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
@@ -146,22 +193,48 @@ var Cubunoid = function(id){
 	
 	var paintGL = function(){
 		if (active) {
-			window.setTimeout(function(){ window.requestAnimFrame(paintGL); }, 30);
+			window.setTimeout(function(){ window.requestAnimFrame(paintGL); }, 33);
 			//window.requestAnimFrame(paintGL);
-		}
+		} else {return;}
 		
-		// clear framebuffer
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		// calculate transformation matrices
 		mat4.identity(mvMatrix);
-		mat4.translate(mvMatrix, [0.0, 0.0, -8.5]);
+		mat4.translate(mvMatrix, [0.0, 0.0, -zDistance]);
 		mat4.rotate(mvMatrix, rotX, [1.0, 0.0, 0.0]);
 		mat4.rotate(mvMatrix, rotZ, [0.0, 0.0, 1.0]);
-		// draw data
-		drawPlatform();
-		drawObjects(objects.boxes);
-		drawObjects(objects.concrete);
-		drawObjects(objects.trigger);
+		
+		// activate or deactivate picking
+		gl.uniform1i(shaderVariables.uUsePicking, picking ? 1 : 0);
+		if (picking) {
+			// bind frame buffer
+			gl.bindFramebuffer(gl.FRAMEBUFFER, pickingBuffer.frameBuffer);
+			// clear framebuffer
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+			// draw data
+			drawObjects(objects.boxes);
+			// evaluate picking result
+			var pickID = new Uint8Array(4);
+			// in WebGL 1.0 readPixels only works with UNSIGNED_BYTE!
+			// IMPORTANT NOTE: frame buffers store pixels vertically mirrored!
+			gl.readPixels(pickingBuffer.pickX, canvas.height - pickingBuffer.pickY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pickID);
+			
+			// do something
+			console.log("Picked @ x:" + pickingBuffer.pickX + "/y:" + pickingBuffer.pickY + " ID: [" + pickID[0] + ", " + pickID[1] + ", " + pickID[2] + ", " + pickID[3] + "]");
+			changeBoxSelection(Math.ceil(pickID[2]/255*10) - 1);
+			
+			// unbind framebuffer und disable picking
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			picking = false;
+			//active = true;
+		} else {
+			// clear framebuffer
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+			// draw data
+			drawPlatform();
+			drawObjects(objects.boxes);
+			drawObjects(objects.concrete);
+			drawObjects(objects.trigger);
+		}
 	};
 	
 	this.attachShader = function(id, altId){
@@ -209,8 +282,11 @@ var Cubunoid = function(id){
 		shaderVariables.aVertex     = gl.getAttribLocation(program, "aVertex");
 		shaderVariables.aNormal     = gl.getAttribLocation(program, "aNormal");
 		shaderVariables.aTexCoord   = gl.getAttribLocation(program, "aTexCoord");
+		
+		shaderVariables.uUsePicking = gl.getUniformLocation(program, "uUsePicking");
 		shaderVariables.uUseTexture = gl.getUniformLocation(program, "uUseTexture");
 		shaderVariables.uHighlight  = gl.getUniformLocation(program, "uHighlight");
+		shaderVariables.uBoxId      = gl.getUniformLocation(program, "uBoxId");
 		shaderVariables.uSampler    = gl.getUniformLocation(program, "uSampler");
 		shaderVariables.uNMatrix    = gl.getUniformLocation(program, "uNMatrix");
 		shaderVariables.uMvMatrix   = gl.getUniformLocation(program, "uMvMatrix");
@@ -257,6 +333,11 @@ var Cubunoid = function(id){
 		getShaderVariables();
 	};
 	
+	function changeBoxSelection(n) {
+		for (var i = 0; i < objects.boxes.length; ++i)
+			objects.boxes[i].selected = (i == n);	
+	}
+	
 	/** HINT: Rendering is probably mirrored! */
 	this.eventHandler = function(action){
 		var dir;
@@ -266,16 +347,11 @@ var Cubunoid = function(id){
 				rotate();
 				break;
 			case InputType.BOX1:
-				for (var i = 0; i < objects.boxes.length; ++i)
-					objects.boxes[i].selected = (i == 0);
-				break;
 			case InputType.BOX2:
-				for (var i = 0; i < objects.boxes.length; ++i)
-					objects.boxes[i].selected = (i == 1);
-				break;
 			case InputType.BOX3:
-				for (var i = 0; i < objects.boxes.length; ++i)
-					objects.boxes[i].selected = (i == 2);
+			case InputType.BOX4:
+			case InputType.BOX5:
+				changeBoxSelection(action-1);
 				break;
 			case InputType.K_LEFT:				
 				switch (getPositionCode()) {
@@ -345,6 +421,12 @@ var Cubunoid = function(id){
 		}
 	};
 	
+	this.pickHandler = function(xPos, yPos){
+		pickingBuffer.pickX = xPos;
+		pickingBuffer.pickY = yPos;
+		picking             = true;
+	};
+	
 	this.mouseHandler = function(xOffset, yOffset){
 		rotate((-xOffset/400), (-yOffset/400));
 	};
@@ -375,19 +457,19 @@ var Cubunoid = function(id){
 		meshes.platform.texture = meshes.concrete.texture;
 		
 		// generate platform
-		objects.platform = new GameObject("platform", meshes.platform, 0.0, 0.0);
+		objects.platform = new GameObject("platform", meshes.platform, 0.0, 0.0, -1);
 		// generate boxes
 		objects.boxes.splice(0, objects.boxes.length);
 		for (i = 0; i < map.boxes.length; ++i)
-			objects.boxes.push(new GameObject("box" + i, meshes.box, map.boxes[i].x, map.boxes[i].y));
+			objects.boxes.push(new GameObject("box" + i, meshes.box, map.boxes[i].x, map.boxes[i].y, i));
 		// generate misc obstacles
 		objects.concrete.splice(0, objects.concrete.length);
 		for (i = 0; i < map.concrete.length; ++i)
-			objects.concrete.push(new GameObject("concrete" + i, meshes.concrete, map.concrete[i].x, map.concrete[i].y));
+			objects.concrete.push(new GameObject("concrete" + i, meshes.concrete, map.concrete[i].x, map.concrete[i].y, -1));
 		// generate trigger
 		objects.trigger.splice(0, objects.trigger.length);
 		for (i = 0; i < map.switches.length; ++i)
-			objects.trigger.push(new GameObject("trigger" + i, meshes.trigger, map.switches[i].x, map.switches[i].y));
+			objects.trigger.push(new GameObject("trigger" + i, meshes.trigger, map.switches[i].x, map.switches[i].y, -1));
 			
 		// see logic.js (LEGACY!)
 		window.level = {
@@ -397,6 +479,7 @@ var Cubunoid = function(id){
 			concrete: objects.concrete,
 			switches: objects.trigger
 		};
+		zDistance = Math.max(map.width, map.height) + 3.0;
 		
 		active = true; // enable rendering
 		paintGL();     // start render loop

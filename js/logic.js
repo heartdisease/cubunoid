@@ -49,6 +49,14 @@ var map5 = {
 	concrete : [new Field(3, 4), new Field(1, 2)]
 };
 
+var map6 = {
+	width :    5,
+	height :   7,
+	switches : [new Field(1, 2), new Field(2, 3), new Field(1, 5)],
+	boxes :    [new Field(0, 0), new Field(4, 0), new Field(3, 5), new Field(0, 6), new Field(2, 6)],
+	concrete : [new Field(4, 5), new Field(3, 6), new Field(4, 6)]
+};
+
 var c;
 var level = null;
 

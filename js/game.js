@@ -4,8 +4,9 @@ window.onload = function() {
 	var game = new Cubunoid("glcanvas");
 	game.initGL();
 	game.resizeGL();
+	game.initPickingBuffer();
 	game.attachShader("shader-vs");
 	game.attachShader("shader-fs", "shader-fs-phong");
 	game.useProgram();
-	game.loadMap(0);
+	game.loadMap(5);
 };

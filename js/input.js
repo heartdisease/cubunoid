@@ -3,19 +3,24 @@ var InputType = {
 	BOX1:    1,
 	BOX2:    2,
 	BOX3:    3,
-	K_LEFT:  4,
-	K_RIGHT: 5,
-	K_UP:    6,
-	K_DOWN:  7
+	BOX4:    4,
+	BOX5:    5,
+	K_LEFT:  6,
+	K_RIGHT: 7,
+	K_UP:    8,
+	K_DOWN:  9
 };
 
-var InputManager = function(kh, mh){
+var InputManager = function(kh, dh, ch){
 	var keyHandler = kh;
-	var mouseHandler = mh;
+	var dragHandler = dh;
+	var clickHandler = ch;
 	var drag = false;
 	var lastPos = {x: -1, y: -1};
 	
 	var keyListener = function(e){
+		console.log(e.keyCode);
+		
 		switch (e.keyCode) {
 			case 32: // space
 				keyHandler(InputType.SPIN);
@@ -28,6 +33,12 @@ var InputManager = function(kh, mh){
 				break;
 			case 99: case 51: // key 3
 				keyHandler(InputType.BOX3);
+				break;
+			case 100: case 52: // key 4
+				keyHandler(InputType.BOX4);
+				break;
+			case 101: case 53: // key 5
+				keyHandler(InputType.BOX5);
 				break;
 			case 37: // key left
 				keyHandler(InputType.K_LEFT);
@@ -45,6 +56,8 @@ var InputManager = function(kh, mh){
 	};
 	
 	var mouseDownListener = function(e){
+		clickHandler(e.pageX, e.pageY);
+		
 		lastPos.x = e.pageX;
 		lastPos.y = e.pageY;
 		drag = true;
@@ -52,7 +65,7 @@ var InputManager = function(kh, mh){
 	
 	var mouseMoveListener = function(e){
 		if (drag) {
-			mouseHandler(lastPos.x - e.pageX, lastPos.y - e.pageY);
+			dragHandler(lastPos.x - e.pageX, lastPos.y - e.pageY);
 			
 			lastPos.x = e.pageX;
 			lastPos.y = e.pageY;

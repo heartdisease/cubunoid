@@ -6,7 +6,7 @@ var GameObject = function(name, mesh, x, y, i){
 	this.x        = x;
 	this.y        = y;
 	this.selected = false;
-	this.colorID  = new Float32Array([1.0, 1.0, (i == -1) ? 0.0 : (0.1+i*0.1), 1.0]); // allows only 10 different IDs
+	this.colorID  = new Float32Array([0.0, 0.0, (i == -1) ? 0.0 : (0.1+i*0.1), 1.0]); // allows only 10 different IDs
 };
 
 var Texture = function(src, gl){

@@ -16,7 +16,8 @@ var InputManager = function(kh, dh, ch){
 	var dragHandler = dh;
 	var clickHandler = ch;
 	var drag = false;
-	var lastPos = {x: -1, y: -1};
+	var startPos = {x: -1, y: -1};
+	var lastPos  = {x: -1, y: -1};
 	
 	var keyListener = function(e){
 		console.log(e.keyCode);
@@ -56,10 +57,8 @@ var InputManager = function(kh, dh, ch){
 	};
 	
 	var mouseDownListener = function(e){
-		clickHandler(e.pageX, e.pageY);
-		
-		lastPos.x = e.pageX;
-		lastPos.y = e.pageY;
+		startPos.x = lastPos.x = e.pageX;
+		startPos.y = lastPos.y = e.pageY;
 		drag = true;
 	};
 	
@@ -73,6 +72,9 @@ var InputManager = function(kh, dh, ch){
 	};
 	
 	var mouseUpListener = function(e){
+		if (startPos.x == e.pageX && startPos.y == e.pageY)
+			clickHandler(e.pageX, e.pageY);
+		
 		drag = false;
 	};
 	

@@ -211,6 +211,7 @@ var Cubunoid = function(id){
 			// clear framebuffer
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			// draw data
+			drawPlatform();
 			drawObjects(objects.boxes);
 			// evaluate picking result
 			var pickID = new Uint8Array(4);
@@ -225,7 +226,7 @@ var Cubunoid = function(id){
 			// unbind framebuffer und disable picking
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 			picking = false;
-			//active = true;
+			//active = false;
 		} else {
 			// clear framebuffer
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

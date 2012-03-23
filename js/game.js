@@ -8,5 +8,5 @@ window.onload = function() {
 	game.attachShader("shader-vs");
 	game.attachShader("shader-fs", "shader-fs-phong");
 	game.useProgram();
-	game.loadMap(5);
+	game.loadMap(0);
 };

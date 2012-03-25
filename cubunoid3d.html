@@ -60,16 +60,16 @@
 			
 			LightSource light0 = LightSource(
 				vec4(1.0, 1.0, 1.0, 1.0),
+				vec4(0.7, 0.7, 0.7, 1.0),
 				vec4(1.0, 1.0, 1.0, 1.0),
-				vec4(1.0, 1.0, 1.0, 1.0),
-				vec3(0.0, 0.0, 5.0)
+				vec3(0.0, 0.0, 3.0)
 			);
 			
 			Material mat = Material(
 				vec4(0.5, 0.5, 0.5, 1.0),
 				vec4(0.8, 0.8, 0.8, 1.0),
 				vec4(1.0, 1.0, 1.0, 1.0),
-				5.0
+				200.0
 			);
 			
 			vec4 phong(vec4 color, vec3 normal, vec3 eyePos) {
@@ -78,11 +78,11 @@
 				vec3 reflection   = reflect(-normPos, normal);
 				
 				vec4 Ia = light0.ambient * mat.ambient;
-				vec4 Id = light0.diffuse * mat.diffuse * LambertTerm;
+				vec4 Id = light0.diffuse * mat.diffuse * LambertTerm; // light0.diffuse * mat.diffuse * LambertTerm
 				vec4 Is = mat.specular * light0.specular * pow(max(dot(reflection, eyePos), 0.0), mat.shininess);
-				vec4 If = (Ia + Id + Is);
+				vec4 If = color*(Ia + Id + Is);
 				
-				return (color * If);
+				return If;
 			}
 		</script>
 		<script id="shader-fs" type="x-shader/x-fragment">

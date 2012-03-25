@@ -66,7 +66,7 @@ var Cubunoid = function(id){
 			return;
 		}
 		
-		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		gl.clearColor(1.0, 1.0, 1.0, 1.0);
     	gl.enable(gl.DEPTH_TEST);
     	
 		gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -76,7 +76,7 @@ var Cubunoid = function(id){
 		input = new InputManager(this.eventHandler, this.mouseHandler, this.pickHandler);
 	};
 	
-	this.initPickingBuffer = function(){
+	function initPickingBuffer() {
 		// create frame buffer
 		pickingBuffer.frameBuffer  = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, pickingBuffer.frameBuffer);
@@ -100,7 +100,16 @@ var Cubunoid = function(id){
 		gl.bindTexture(gl.TEXTURE_2D, null);
 		gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	};
+	}
+	
+	function deletePickingBuffer() {
+		if (pickingBuffer.texture)
+			gl.deleteTexture(pickingBuffer.texture);
+		if (pickingBuffer.renderBuffer)
+			gl.deleteRenderbuffer(pickingBuffer.renderBuffer);
+		if (pickingBuffer.frameBuffer)
+			gl.deleteFramebuffer(pickingBuffer.frameBuffer);
+	}
 	
 	this.resizeGL = function(){
 		canvas.width  = window.innerWidth;
@@ -108,10 +117,9 @@ var Cubunoid = function(id){
 		
 		console.log("Set viewport to " + canvas.width + "x" + canvas.height);
 		gl.viewport(0, 0, canvas.width, canvas.height);
-		// resize viewport for frame buffer too
-		gl.bindFramebuffer(gl.FRAMEBUFFER, pickingBuffer.frameBuffer);
-		gl.viewport(0, 0, canvas.width, canvas.height);
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		// create new  frame buffer
+		deletePickingBuffer();
+		initPickingBuffer();
 		
 		mat4.perspective(45, canvas.width/canvas.height, 0.1, 100.0, pMatrix);
 	};
@@ -279,6 +287,11 @@ var Cubunoid = function(id){
 		}
 	};
 	
+	this.useProgram = function(){
+		linkProgram();
+		getShaderVariables();
+	};
+	
 	var getShaderVariables = function(){
 		shaderVariables.aVertex     = gl.getAttribLocation(program, "aVertex");
 		shaderVariables.aNormal     = gl.getAttribLocation(program, "aNormal");
@@ -329,17 +342,90 @@ var Cubunoid = function(id){
 		//console.log("Rotation: " + rotZ + "rad (" + (rotZ/MAX_RAD*360) + " deg)");
 	};
 	
-	this.useProgram = function(){
-		linkProgram();
-		getShaderVariables();
-	};
-	
 	function changeBoxSelection(n) {
 		for (var i = 0; i < objects.boxes.length; ++i)
 			objects.boxes[i].selected = (i == n);	
 	}
 	
-	/** HINT: Rendering is probably mirrored! */
+	/** TODO: get rid of this nasty parameter list and create Animation 'class' */
+	function animateBox(obj, pos, dir, speed, animation, im) {
+		switch (dir) {
+			case Direction.UP:
+				if (obj.y > pos.y) {
+					if ((obj.y - pos.y) < speed)
+						obj.y = pos.y;
+					else
+						obj.y -= speed;
+					return;
+				}
+				break;
+			case Direction.DOWN:
+				if (obj.y < pos.y) {
+					if ((pos.y - obj.y) < speed)
+						obj.y = pos.y;
+					else
+						obj.y += speed;
+					return;
+				}
+				break;
+			case Direction.LEFT:
+				if (obj.x > pos.x) {
+					if ((obj.x - pos.x) < speed)
+						obj.x = pos.x;
+					else
+						obj.x -= speed;
+					return;
+				}
+				break;
+			case Direction.RIGHT:
+				if (obj.x < pos.x) {
+					if ((pos.x - obj.x) < speed)
+						obj.x = pos.x;
+					else
+						obj.x += speed;
+					return;
+				}
+				break;
+		}
+		
+		im.setLocked(false);
+		window.clearInterval(animation);
+		
+		// check if player has completed level
+		if (isGameOver()) {
+			window.alert("Level complete!");
+			if (level+1 >= levels.length)
+				window.alert("Congratulations! You've mastered all quests!");
+			else
+				loadMap(++level);
+		}
+	};
+	
+	var shiftBox = function(dir){
+		var pos;
+		var box;
+		var animation;
+		var speed = 0.2;
+		
+		for (var i = 0; i < objects.boxes.length; ++i) {
+			if (objects.boxes[i].selected) {
+				pos = window.shiftBox(objects.boxes[i], dir);
+				if (pos == null) {
+					window.alert("Invalid move!");
+				} else {
+					input.setLocked(true);
+					boxRef    = objects.boxes[i]; // 'objects' is out of scope for nested function
+					inputRef  = input;
+					animation = window.setInterval(
+						function(){
+							animateBox(boxRef, pos, dir, speed, animation, inputRef);
+						}, 10
+					);
+				}
+			}
+		}
+	};
+	
 	this.eventHandler = function(action){
 		var dir;
 		
@@ -362,11 +448,7 @@ var Cubunoid = function(id){
 					case 3: dir = Direction.DOWN; break;
 				};
 				
-				for (var i = 0; i < objects.boxes.length; ++i)
-				{
-					if (objects.boxes[i].selected)
-						shiftBox(objects.boxes[i], dir);
-				}
+				shiftBox(dir);
 				break;
 			case InputType.K_RIGHT:
 				switch (getPositionCode()) {
@@ -376,11 +458,7 @@ var Cubunoid = function(id){
 					case 3: dir = Direction.UP; break;
 				};
 				
-				for (var i = 0; i < objects.boxes.length; ++i)
-				{
-					if (objects.boxes[i].selected)
-						shiftBox(objects.boxes[i], dir);
-				}
+				shiftBox(dir);
 				break;
 			case InputType.K_UP:
 				switch (getPositionCode()) {
@@ -390,11 +468,7 @@ var Cubunoid = function(id){
 					case 3: dir = Direction.LEFT; break;
 				};
 				
-				for (var i = 0; i < objects.boxes.length; ++i)
-				{
-					if (objects.boxes[i].selected)
-						shiftBox(objects.boxes[i], dir);
-				}
+				shiftBox(dir);
 				break;
 			case InputType.K_DOWN:
 				switch (getPositionCode()) {
@@ -404,21 +478,8 @@ var Cubunoid = function(id){
 					case 3: dir = Direction.RIGHT; break;
 				};
 				
-				for (var i = 0; i < objects.boxes.length; ++i)
-				{
-					if (objects.boxes[i].selected)
-						shiftBox(objects.boxes[i], dir);
-				}
+				shiftBox(dir);
 				break;
-		}
-		
-		// check if player has completed level
-		if (isGameOver()) {
-			window.alert("Level complete!");
-			if (level+1 >= levels.length)
-				window.alert("Congratulations! You've mastered all quests!");
-			else
-				loadMap(++level);
 		}
 	};
 	

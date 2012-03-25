@@ -16,12 +16,25 @@ var InputManager = function(kh, dh, ch){
 	var dragHandler = dh;
 	var clickHandler = ch;
 	var drag = false;
+	var lock = false;
 	var startPos = {x: -1, y: -1};
 	var lastPos  = {x: -1, y: -1};
 	
-	var keyListener = function(e){
+	this.setLocked = function(b){
+		lock = b;
+		if (b)
+			console.log("lock input");
+		else
+			console.log("unlock input");
+	};
+	
+	function keyListener(e) {
 		console.log(e.keyCode);
 		
+		if (lock) {
+			console.log("input is locked!");
+			return;
+		}
 		switch (e.keyCode) {
 			case 32: // space
 				keyHandler(InputType.SPIN);
@@ -54,16 +67,18 @@ var InputManager = function(kh, dh, ch){
 				keyHandler(InputType.K_DOWN);
 				break;
 		}
-	};
+	}
 	
 	var mouseDownListener = function(e){
+		if (lock)
+			return;
 		startPos.x = lastPos.x = e.pageX;
 		startPos.y = lastPos.y = e.pageY;
 		drag = true;
 	};
 	
 	var mouseMoveListener = function(e){
-		if (drag) {
+		if (!lock && drag) {
 			dragHandler(lastPos.x - e.pageX, lastPos.y - e.pageY);
 			
 			lastPos.x = e.pageX;
@@ -72,6 +87,8 @@ var InputManager = function(kh, dh, ch){
 	};
 	
 	var mouseUpListener = function(e){
+		if (lock)
+			return;
 		if (startPos.x == e.pageX && startPos.y == e.pageY)
 			clickHandler(e.pageX, e.pageY);
 		

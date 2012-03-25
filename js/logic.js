@@ -170,6 +170,7 @@ function isGameOver() {
 	return true;
 };
 
+/** Returns the new position or null if move is invalid. */
 function shiftBox(box, dir) {
 	var field, target = 0;
 	
@@ -184,13 +185,13 @@ function shiftBox(box, dir) {
 				field = getClosest(box, level.boxes, target, dir);
 				if (field != null) {
 					target = field.y;
-					console.log("we're hitting box at " + field.x + ":" + field.y);
-				} else { console.log("we're hitting the wall! (box check)"); }
+					//console.log("we're hitting box at " + field.x + ":" + field.y);
+				}// else { console.log("we're hitting the wall! (box check)"); }
 				field = getClosest(box, level.concrete, target, dir);
 				if (field != null) {
 					target = field.y;
-					console.log("we're hitting concrete field at " + field.x + ":" + field.y);
-				} else { console.log("we're hitting the wall! (concrete check)"); }
+					//console.log("we're hitting concrete field at " + field.x + ":" + field.y);
+				}// else { console.log("we're hitting the wall! (concrete check)"); }
 				break;
 			case Direction.LEFT:
 				target = -1; // imaginary box outside the arena (wall)
@@ -201,41 +202,33 @@ function shiftBox(box, dir) {
 				field = getClosest(box, level.boxes, target, dir);
 				if (field != null) {
 					target = field.x;
-					console.log("we're hitting box at " + field.x + ":" + field.y);
-				} else { console.log("we're hitting the wall! (box check)"); }
+					//console.log("we're hitting box at " + field.x + ":" + field.y);
+				}// else { console.log("we're hitting the wall! (box check)"); }
 				field = getClosest(box, level.concrete, target, dir);
 				if (field != null) {
 					target = field.x;
-					console.log("we're hitting concrete field at " + field.x + ":" + field.y);
-				} else { console.log("we're hitting the wall! (concrete check)"); }
+					//console.log("we're hitting concrete field at " + field.x + ":" + field.y);
+				}// else { console.log("we're hitting the wall! (concrete check)"); }
 				break;
 		}
 		
 		switch (dir) {
 			case Direction.UP:
-				box.y               = target + 1;
-				//box.node.style.top  = (TILE_SIZE * box.y) + "px";
-				console.log("move box on Y axis to " + box.y + ".");
-				break;
+				//console.log("move box on Y axis to " + box.y + ".");
+				return {x: box.x, y: target + 1};
 			case Direction.DOWN:
-				box.y               = target - 1;
-				//box.node.style.top  = (TILE_SIZE * box.y) + "px";
-				console.log("move box on Y axis to " + box.y + ".");
-				break;
+				//console.log("move box on Y axis to " + box.y + ".");
+				return {x: box.x, y: target - 1};
 			case Direction.LEFT:
-				box.x               = target + 1;
-				//box.node.style.left = (TILE_SIZE * box.x) + "px";
-				console.log("move box on X axis to " + box.x + ".");
-				break;
+				//console.log("move box on X axis to " + box.x + ".");
+				return {x: target + 1, y: box.y};
 			case Direction.RIGHT:
-				box.x               = target - 1;
-				//box.node.style.left = (TILE_SIZE * box.x) + "px";
-				console.log("move box on X axis to " + box.x + ".");
-				break;
+				//console.log("move box on X axis to " + box.x + ".");
+				return {x: target - 1, y: box.y};
 		}
 	}
-	else
-		window.alert("Invalid move!");
+	
+	return null;
 }
 
 /**

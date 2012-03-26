@@ -25,8 +25,8 @@ var Texture = function(src, gl){
 		
 			gl.bindTexture(gl.TEXTURE_2D, texture);
 			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); //gl.CLAMP_TO_EDGE
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
@@ -191,6 +191,87 @@ var Mesh = function(){ // dirty solution! no proper separation
 	this.texCoordItemSize = 2;
 	this.numItems         = 36;
 };
+
+function Skybox(gl) {
+	var self = this;
+	
+	var loadedImages = 0;
+	var images       = {
+		positiveX: null,
+		negativeX: null,
+		positiveY: null,
+		negativeY: null,
+		positiveZ: null,
+		negativeZ: null
+	};
+	
+	// TODO: Make own CubeMap class!
+	function generateCubeMap(){
+		self.texture = gl.createTexture(); // this.texture is undefined!! (prototyping bug?)
+		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
+		
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		
+		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, 0, 0, gl.RGBA, gl.RGBA, images.positiveX);
+		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, 0, 0, gl.RGBA, gl.RGBA, images.negativeX);
+		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, 0, 0, gl.RGBA, gl.RGBA, images.positiveY);
+		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, 0, 0, gl.RGBA, gl.RGBA, images.negativeY);
+		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, 0, 0, gl.RGBA, gl.RGBA, images.positiveZ);
+		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, 0, 0, gl.RGBA, gl.RGBA, images.negativeZ);
+		
+		gl.bindTexture(gl.TEXTURE_2D, null);
+		
+		self.hasTexture = true;
+		self.isLoaded = function(){ return true; }; // to maintain compatibility with Texture 'class' (texture binding should be done in Texture classes!!)
+	};
+	
+	function imageLoaded() {
+		if (++loadedImages == 6) // all textures have been loaded
+			generateCubeMap();
+	}
+	
+	function loadImage(src, img) {
+		img = new Image();
+		img.onload = imageLoaded;
+		img.src = src;
+	}
+	
+	this.loadTextureCube = function(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ){
+		loadImage(srcPosX, images.positiveX);
+		loadImage(srcNegX, images.negativeX);
+		loadImage(srcPosY, images.positiveY);
+		loadImage(srcNegY, images.negativeY);
+		loadImage(srcPosZ, images.positiveZ);
+		loadImage(srcNegZ, images.negativeZ);
+	};
+	
+	// construction code
+	var size     = 100.0;  // width = height
+	var halfSize = size / 2;
+	var geometry = [
+		// front face
+		[-halfSize,  halfSize,  halfSize],
+		[ halfSize,  halfSize,  halfSize],
+		[ halfSize, -halfSize,  halfSize],
+		[-halfSize, -halfSize,  halfSize],
+		// back face
+		[-halfSize,  halfSize, -halfSize],
+		[ halfSize,  halfSize, -halfSize],
+		[ halfSize, -halfSize, -halfSize],
+		[-halfSize, -halfSize, -halfSize]
+	];
+	
+	this.width  = size;
+	this.height = size;
+	this.depth  = size;
+	
+	this.generateGeometry(geometry, gl);
+}
+Skybox.prototype = new Mesh();
+Skybox.prototype.constructor = Skybox;
 
 var Platform = function(gl, width, height){	
 	this.width  = width;

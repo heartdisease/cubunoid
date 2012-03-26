@@ -22,17 +22,20 @@ var InputManager = function(kh, dh, ch){
 	
 	this.setLocked = function(b){
 		lock = b;
-		if (b)
-			console.log("lock input");
-		else
-			console.log("unlock input");
+		if (DEBUG) {
+			if (b)
+				console.log("lock input");
+			else
+				console.log("unlock input");
+		}
 	};
 	
 	function keyListener(e) {
-		console.log(e.keyCode);
+		//console.log(e.keyCode);
 		
 		if (lock) {
-			console.log("input is locked!");
+			if (DEBUG)
+				console.log("input is locked!");
 			return;
 		}
 		switch (e.keyCode) {

@@ -44,13 +44,15 @@ var Cubunoid = function(id){
 		pickY:           0
 	};
 	var meshes = { // geometry for game objects
+		skybox:   null,
 		platform: null,
 		boxes:    null,
 		trigger:  null,
 		concrete: null
 	};
 	var objects = { // actual game objects
-		platform:        null,
+		skybox:   null,
+		platform: null,
 		boxes:    new Array(),
 		trigger:  new Array(),
 		concrete: new Array()
@@ -148,7 +150,7 @@ var Cubunoid = function(id){
 		gl.bindBuffer(gl.ARRAY_BUFFER, obj.mesh.normalBuffer);
 		gl.vertexAttribPointer(shaderVariables.aNormal, obj.mesh.normalItemSize, gl.FLOAT, false, 0, 0);
 		// activate texture (if available)
-		if (obj.mesh.texture && obj.mesh.texture.isLoaded()) {
+		if (obj.mesh.hasTexture) {
 			gl.enableVertexAttribArray(shaderVariables.aTexCoord);	// activate texcoord buffer
 			gl.uniform1i(shaderVariables.uUseTexture, 1);			// tell shader to use texture
 			
@@ -171,6 +173,11 @@ var Cubunoid = function(id){
 	var drawPlatform = function(){
 		uploadMatrices(mvMatrix, true);
 		drawObject(objects.platform);
+	};
+	
+	var drawSkybox = function(){
+		uploadMatrices(mvMatrix, false);
+		drawObject(objects.skybox);
 	};
 	
 	/** Renders an array with game objects (like boxes, trigger, ...) */
@@ -243,6 +250,7 @@ var Cubunoid = function(id){
 			drawObjects(objects.boxes);
 			drawObjects(objects.concrete);
 			drawObjects(objects.trigger);
+			drawSkybox(); // draw skybox at last (performance reasons)
 		}
 	};
 	
@@ -347,60 +355,6 @@ var Cubunoid = function(id){
 			objects.boxes[i].selected = (i == n);	
 	}
 	
-	/** TODO: get rid of this nasty parameter list and create Animation 'class' */
-	function animateBox(obj, pos, dir, speed, animation, im) {
-		switch (dir) {
-			case Direction.UP:
-				if (obj.y > pos.y) {
-					if ((obj.y - pos.y) < speed)
-						obj.y = pos.y;
-					else
-						obj.y -= speed;
-					return;
-				}
-				break;
-			case Direction.DOWN:
-				if (obj.y < pos.y) {
-					if ((pos.y - obj.y) < speed)
-						obj.y = pos.y;
-					else
-						obj.y += speed;
-					return;
-				}
-				break;
-			case Direction.LEFT:
-				if (obj.x > pos.x) {
-					if ((obj.x - pos.x) < speed)
-						obj.x = pos.x;
-					else
-						obj.x -= speed;
-					return;
-				}
-				break;
-			case Direction.RIGHT:
-				if (obj.x < pos.x) {
-					if ((pos.x - obj.x) < speed)
-						obj.x = pos.x;
-					else
-						obj.x += speed;
-					return;
-				}
-				break;
-		}
-		
-		im.setLocked(false);
-		window.clearInterval(animation);
-		
-		// check if player has completed level
-		if (isGameOver()) {
-			window.alert("Level complete!");
-			if (level+1 >= levels.length)
-				window.alert("Congratulations! You've mastered all quests!");
-			else
-				loadMap(++level);
-		}
-	};
-	
 	var shiftBox = function(dir){
 		var pos;
 		var box;
@@ -414,13 +368,26 @@ var Cubunoid = function(id){
 					window.alert("Invalid move!");
 				} else {
 					input.setLocked(true);
-					boxRef    = objects.boxes[i]; // 'objects' is out of scope for nested function
-					inputRef  = input;
-					animation = window.setInterval(
-						function(){
-							animateBox(boxRef, pos, dir, speed, animation, inputRef);
-						}, 10
-					);
+					inputRef  = input; // 'input' is out of scope for nested function
+					levelRef  = level;
+					levelsRef = levels;
+					
+					var animation = new Animation(objects.boxes[i], pos, dir, 1.0);
+					animation.addEventListener("exit", function(){
+						inputRef.setLocked(false);
+		
+						// check if player has completed level
+						if (isGameOver()) {
+							window.alert("Level complete!");
+							if (levelRef+1 >= levelsRef.length)
+								window.alert("Congratulations! You've mastered all quests!");
+							else
+								loadMap(++levelRef);
+						}
+						
+						//console.log("animation has ended.");
+					});
+					animation.start();
 				}
 			}
 		}
@@ -500,7 +467,20 @@ var Cubunoid = function(id){
 		active = false; // disable rendering
 		console.log("Create platform " + map.width + "x" + map.height);
 		
-		// generate geometry
+		// generate skybox (only once)
+		if (!meshes.skybox) {
+			meshes.skybox = new Skybox(gl);
+			meshes.skybox.loadTextureCube(
+				"textures/terrain_positive_x.png",
+				"textures/terrain_negative_x.png",
+				"textures/terrain_positive_y.png",
+				"textures/terrain_negative_y.png",
+				"textures/terrain_positive_z.png",
+				"textures/terrain_negative_z.png"
+			);
+			objects.skybox = new GameObject("skybox", meshes.skybox, 0.0, 0.0, -1);
+		}		
+		// generate other geometry
 		if (!meshes.box) {
 			meshes.box = new Box(gl);
 			meshes.box.setTexture("textures/wood.jpg", gl);

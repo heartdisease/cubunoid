@@ -21,7 +21,7 @@
 			uniform mat4 uNMatrix;
 			uniform mat4 uMvMatrix;
 			uniform mat4 uMvpMatrix;
-			uniform bool uUseTexture;
+			uniform int  uTextureMode;
 			
 			vec3 eyePos = vec3(0.0, 0.0, 0.0);
 			
@@ -34,7 +34,7 @@
 				vColor      = vec4(aNormal, 1.0);
 				vNormal     = normalize((uNMatrix * vec4(aNormal, 1.0)).xyz);
 				vEye        = normalize((uMvMatrix * vec4(eyePos, 1.0)).xyz);
-				if (uUseTexture)
+				if (uTextureMode != 0)
 					vTexCoord = aTexCoord;
 				
 				gl_Position = uMvpMatrix * vec4(aVertex, 1.0);
@@ -96,15 +96,31 @@
 			varying vec2 vTexCoord;
 			varying vec3 vEye;
 			
-			uniform sampler2D uSampler;
-			uniform bool uUseTexture;
-			uniform bool uUsePicking;
-			uniform bool uHighlight;
-			uniform vec4 uBoxId; // this variable is only defined if uUsePicking is true
+			uniform sampler2D   uSampler;
+			uniform samplerCube uSamplerCube;
+			uniform int         uTextureMode;
+			uniform bool        uUsePicking;
+			uniform bool        uHighlight;
+			uniform vec4        uBoxId; // this variable is only defined if uUsePicking is true
 			
 			void main(void) {
-				vec4 color     = uUseTexture ? texture2D(uSampler, vTexCoord) : vColor;
-				vec4 fragColor = phong(uHighlight ? (vec4(10.0, 1.2, 1.2, 1.0) * color) : color, vNormal, vEye);
+				vec4 color;
+				
+				if (uUsePicking) {
+					gl_FragColor = uBoxId;
+				} else {
+					if (uTextureMode == 1) {
+						color = texture2D(uSampler, vTexCoord);
+					} else if (uTextureMode == 2) {
+						gl_FragColor = textureCube(uSamplerCube, vec3(vTexCoord, 0.0)); // TODO: missing z-tex-coord!
+						return;
+					} else {
+						color = vColor;
+					}
+					if (uHighlight)
+						color *= vec4(10.0, 1.2, 1.2, 1.0);
+					gl_FragColor = phong(color, vNormal, vEye);
+				}
 				
 				/* from http://games.greggman.com/game/webgl-techniques-and-performance/
 				Question: No WebGL implementation supports multiple render targets. The WebGL spec allows the use of this via
@@ -116,8 +132,6 @@
 				multiple render targets then maybe WebGL 2.0 will support them. If you feel strongly about this bring it up on the
 				Public WebGL mailing list. */
 				//gl_FragData[0] = uBoxId; // gl_MaxDrawBuffers is always 1 in WebGL 1.0
-				
-				gl_FragColor = uUsePicking ? uBoxId : fragColor;
 			}
 		</script>
 		<script src="js/game.js" type="text/javascript"></script>

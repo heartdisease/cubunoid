@@ -24,17 +24,18 @@ var Cubunoid = function(id){
 	var level     = 0;
 	var levels    = [map1, map2, map3, map4, map5, map6];
 	var shaderVariables = {
-		aVertex:       -1,
-		aNormal:       -1,
-		aTexCoord:     -1,
-		uUseTexture: null,
-		uUsePicking: null,
-		uHighlight:  null,
-		uSampler:    null,
-		uBoxId:      null,
-		uNMatrix:    null,
-		uMvMatrix:   null,
-		uMvpMatrix:  null
+		aVertex:        -1,
+		aNormal:        -1,
+		aTexCoord:      -1,
+		uTextureMode: null,
+		uUsePicking:  null,
+		uHighlight:   null,
+		uSampler:     null,
+		uSamplerCube: null,
+		uBoxId:       null,
+		uNMatrix:     null,
+		uMvMatrix:    null,
+		uMvpMatrix:   null
 	};
 	var pickingBuffer = {
 		frameBuffer:  null,
@@ -143,31 +144,16 @@ var Cubunoid = function(id){
 		// send object ID to shader in picking mode
 		if (picking)
 			gl.uniform4fv(shaderVariables.uBoxId, obj.colorID);
-		// activate vertex buffer
-		gl.bindBuffer(gl.ARRAY_BUFFER, obj.mesh.vertexBuffer);
-		gl.vertexAttribPointer(shaderVariables.aVertex, obj.mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
-		// activate normal buffer
-		gl.bindBuffer(gl.ARRAY_BUFFER, obj.mesh.normalBuffer);
-		gl.vertexAttribPointer(shaderVariables.aNormal, obj.mesh.normalItemSize, gl.FLOAT, false, 0, 0);
-		// activate texture (if available)
-		if (obj.mesh.hasTexture) {
-			gl.enableVertexAttribArray(shaderVariables.aTexCoord);	// activate texcoord buffer
-			gl.uniform1i(shaderVariables.uUseTexture, 1);			// tell shader to use texture
-			
-			gl.bindBuffer(gl.ARRAY_BUFFER, obj.mesh.texCoordBuffer);
-			gl.vertexAttribPointer(shaderVariables.aTexCoord, obj.mesh.texCoordItemSize, gl.FLOAT, false, 0, 0);
-			
-			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, obj.mesh.texture.texture);
-			gl.uniform1i(shaderVariables.uSampler, 0);				// tell sampler that our texture uses slot 0
-		} else {
-			gl.disableVertexAttribArray(shaderVariables.aTexCoord);
-			gl.uniform1i(shaderVariables.uUseTexture, 0);			// tell shader not to use texture
-		}
 		// highlight object if it is selected
 		gl.uniform1i(shaderVariables.uHighlight, obj.selected ? 1 : 0);
-
-		gl.drawArrays(gl.TRIANGLES, 0, obj.mesh.numItems);
+		
+		obj.mesh.draw(
+			shaderVariables.aVertex,
+			shaderVariables.aNormal,
+			shaderVariables.aTexCoord,
+			(obj == objects.skybox) ? shaderVariables.uSamplerCube : shaderVariables.uSampler,
+			shaderVariables.uTextureMode
+		);
 	};
 	
 	var drawPlatform = function(){
@@ -306,10 +292,11 @@ var Cubunoid = function(id){
 		shaderVariables.aTexCoord   = gl.getAttribLocation(program, "aTexCoord");
 		
 		shaderVariables.uUsePicking = gl.getUniformLocation(program, "uUsePicking");
-		shaderVariables.uUseTexture = gl.getUniformLocation(program, "uUseTexture");
+		shaderVariables.uTextureMode = gl.getUniformLocation(program, "uTextureMode");
 		shaderVariables.uHighlight  = gl.getUniformLocation(program, "uHighlight");
 		shaderVariables.uBoxId      = gl.getUniformLocation(program, "uBoxId");
 		shaderVariables.uSampler    = gl.getUniformLocation(program, "uSampler");
+		shaderVariables.uSamplerCube = gl.getUniformLocation(program, "uSamplerCube");
 		shaderVariables.uNMatrix    = gl.getUniformLocation(program, "uNMatrix");
 		shaderVariables.uMvMatrix   = gl.getUniformLocation(program, "uMvMatrix");
 		shaderVariables.uMvpMatrix  = gl.getUniformLocation(program, "uMvpMatrix");
@@ -495,8 +482,9 @@ var Cubunoid = function(id){
 		}
 		if (meshes.platform)
 			meshes.platform.dispose(gl);
-		meshes.platform         = new Platform(gl, map.width, map.height);
-		meshes.platform.texture = meshes.concrete.texture;
+		meshes.platform            = new Platform(gl, map.width, map.height);
+		meshes.platform.texture    = meshes.concrete.texture;
+		meshes.platform.hasTexture = true;
 		
 		// generate platform
 		objects.platform = new GameObject("platform", meshes.platform, 0.0, 0.0, -1);

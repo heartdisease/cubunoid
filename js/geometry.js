@@ -9,41 +9,136 @@ var GameObject = function(name, mesh, x, y, i){
 	this.colorID  = new Float32Array([0.0, 0.0, (i == -1) ? 0.0 : (0.1+i*0.1), 1.0]); // allows only 10 different IDs
 };
 
-var Texture = function(src, gl){
+function Texture() {
+	this.texture;
+	
+	this.bind;
+	this.isLoaded;
+	this.dispose;
+}
+
+function Texture2D(src, gl) {
+	var self    = this;
 	var loaded  = false;
 	var image   = new Image();
-	var texture = gl.createTexture();
 	
-	this.dispose = function(){
-		gl.deleteTexture(texture);
+	function isLoaded() {
+		return loaded;
+	}
+	
+	function dispose() {
+		gl.deleteTexture(self.texture);
+	}
+	
+	function bind(uSampler, uTextureMode, unit) {
+		//console.log("bind tex on " + unit);
+		
+		gl.activeTexture(gl.TEXTURE0 + unit);
+		gl.bindTexture(gl.TEXTURE_2D, self.texture);
+		gl.uniform1i(uSampler, unit);		// tell sampler that our texture uses slot 'unit' (should be 0)
+		gl.uniform1i(uTextureMode, 1);		// tell shader to use texture
+	}
+	
+	image.onload = function(){
+		console.log("Create texture (" + image.width + "x" + image.height + ") ...");
+	
+		gl.bindTexture(gl.TEXTURE_2D, self.texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); //gl.CLAMP_TO_EDGE
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+		gl.generateMipmap(gl.TEXTURE_2D);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+	
+		loaded = true;
 	};
-	
-	image.addEventListener(
-		"load",
-		function(){
-			console.log("Create texture (" + image.width + "x" + image.height + ") ...");
-		
-			gl.bindTexture(gl.TEXTURE_2D, texture);
-			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); //gl.CLAMP_TO_EDGE
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-			gl.generateMipmap(gl.TEXTURE_2D);
-			gl.bindTexture(gl.TEXTURE_2D, null);
-		
-			loaded = true;
-		},
-		false
-	);
 	image.src = src;
 	
-	this.texture = texture;
-	this.isLoaded = function(){
-		return loaded;
+	this.texture  = gl.createTexture();
+	this.bind     = bind;
+	this.isLoaded = isLoaded;
+	this.dispose  = dispose;
+}
+Texture2D.prototype = new Texture();
+Texture2D.prototype.constructor = Texture2D;
+
+function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl) {
+	var self         = this;
+	var loaded       = false;
+	var loadedImages = 0;
+	var images       = {
+		positiveX: null,
+		negativeX: null,
+		positiveY: null,
+		negativeY: null,
+		positiveZ: null,
+		negativeZ: null
 	};
-};
+	
+	function bind(uSampler, uTextureMode, unit) {
+		gl.activeTexture(gl.TEXTURE0 + unit);
+		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
+		gl.uniform1i(uSampler, unit);		// tell sampler that our texture uses slot 'unit' (should be 0)
+		gl.uniform1i(uTextureMode, 2);		// tell shader to use texture
+	}
+	
+	function isLoaded() {
+		return loaded;
+	}
+	
+	function dispose() {
+		gl.deleteTexture(this.texture);
+	}
+	
+	function generateCubeMap() {
+		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		
+		// not enough arguments??
+		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveX);
+		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeX);
+		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveY);
+		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeY);
+		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveZ);
+		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeZ);
+
+		gl.bindTexture(gl.TEXTURE_2D, null);
+		
+		loaded = true;
+	}
+	
+	function imageLoaded() {
+		console.log("Create cube map texture (" + loadedImages + ") ...");
+		if (++loadedImages == 6) // all textures have been loaded
+			generateCubeMap();
+	}
+	
+	function loadImage(src, img) {
+		img        = new Image();
+		img.onload = imageLoaded;
+		img.src    = src;
+	}
+	
+	loadImage(srcPosX, images.positiveX);
+	loadImage(srcNegX, images.negativeX);
+	loadImage(srcPosY, images.positiveY);
+	loadImage(srcNegY, images.negativeY);
+	loadImage(srcPosZ, images.positiveZ);
+	loadImage(srcNegZ, images.negativeZ);
+	
+	this.texture  = gl.createTexture();
+	this.bind     = bind;
+	this.isLoaded = isLoaded;
+	this.dispose  = dispose;
+}
+TextureCubeMap.prototype = new Texture();
+TextureCubeMap.prototype.constructor = TextureCubeMap;
 
 var Mesh = function(){ // dirty solution! no proper separation	
 	this.width;
@@ -160,6 +255,29 @@ var Mesh = function(){ // dirty solution! no proper separation
 			}
 		}
 		
+		this.draw = function(aVertex, aNormal, aTexCoord, uSampler, uTextureMode){
+			// activate vertex buffer
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+			gl.vertexAttribPointer(aVertex, this.vertexItemSize, gl.FLOAT, false, 0, 0);
+			// activate normal buffer
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+			gl.vertexAttribPointer(aNormal, this.normalItemSize, gl.FLOAT, false, 0, 0);
+			// activate texture (if available)
+			if (this.hasTexture && this.texture.isLoaded()) {
+				gl.enableVertexAttribArray(aTexCoord);	// activate texcoord buffer
+			
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+				gl.vertexAttribPointer(aTexCoord, this.texCoordItemSize, gl.FLOAT, false, 0, 0);
+			
+				this.texture.bind(uSampler, uTextureMode, 0);
+			} else {
+				gl.disableVertexAttribArray(aTexCoord);
+				gl.uniform1i(uTextureMode, 0);			// tell shader not to use texture
+			}
+			
+			gl.drawArrays(gl.TRIANGLES, 0, this.numItems);
+		};
+		
 		this.vertexBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
@@ -174,7 +292,8 @@ var Mesh = function(){ // dirty solution! no proper separation
 	};
 	
 	this.setTexture = function(src, gl){
-		this.texture = new Texture(src, gl);
+		this.texture    = new Texture2D(src, gl);
+		this.hasTexture = true;
 	};
 	
 	/** Frees all WebGL resources (except textures!) */
@@ -192,60 +311,13 @@ var Mesh = function(){ // dirty solution! no proper separation
 	this.numItems         = 36;
 };
 
+/** class Skybox */
 function Skybox(gl) {
 	var self = this;
 	
-	var loadedImages = 0;
-	var images       = {
-		positiveX: null,
-		negativeX: null,
-		positiveY: null,
-		negativeY: null,
-		positiveZ: null,
-		negativeZ: null
-	};
-	
-	// TODO: Make own CubeMap class!
-	function generateCubeMap(){
-		self.texture = gl.createTexture(); // this.texture is undefined!! (prototyping bug?)
-		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
-		
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		
-		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, 0, 0, gl.RGBA, gl.RGBA, images.positiveX);
-		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, 0, 0, gl.RGBA, gl.RGBA, images.negativeX);
-		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, 0, 0, gl.RGBA, gl.RGBA, images.positiveY);
-		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, 0, 0, gl.RGBA, gl.RGBA, images.negativeY);
-		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, 0, 0, gl.RGBA, gl.RGBA, images.positiveZ);
-		gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, 0, 0, gl.RGBA, gl.RGBA, images.negativeZ);
-		
-		gl.bindTexture(gl.TEXTURE_2D, null);
-		
-		self.hasTexture = true;
-		self.isLoaded = function(){ return true; }; // to maintain compatibility with Texture 'class' (texture binding should be done in Texture classes!!)
-	};
-	
-	function imageLoaded() {
-		if (++loadedImages == 6) // all textures have been loaded
-			generateCubeMap();
-	}
-	
-	function loadImage(src, img) {
-		img = new Image();
-		img.onload = imageLoaded;
-		img.src = src;
-	}
-	
 	this.loadTextureCube = function(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ){
-		loadImage(srcPosX, images.positiveX);
-		loadImage(srcNegX, images.negativeX);
-		loadImage(srcPosY, images.positiveY);
-		loadImage(srcNegY, images.negativeY);
-		loadImage(srcPosZ, images.positiveZ);
-		loadImage(srcNegZ, images.negativeZ);
+		this.texture    = new TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl);
+		this.hasTexture = true;
 	};
 	
 	// construction code

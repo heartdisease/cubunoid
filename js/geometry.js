@@ -64,23 +64,24 @@ function Texture2D(src, gl) {
 Texture2D.prototype = new Texture();
 Texture2D.prototype.constructor = Texture2D;
 
+// TODO: use own shader program for cube map!
 function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl) {
 	var self         = this;
 	var loaded       = false;
 	var loadedImages = 0;
 	var images       = {
-		positiveX: null,
-		negativeX: null,
-		positiveY: null,
-		negativeY: null,
-		positiveZ: null,
-		negativeZ: null
+		positiveX: new Image(),
+		negativeX: new Image(),
+		positiveY: new Image(),
+		negativeY: new Image(),
+		positiveZ: new Image(),
+		negativeZ: new Image()
 	};
 	
 	function bind(uSampler, uTextureMode, unit) {
-		gl.activeTexture(gl.TEXTURE0 + unit);
+		gl.activeTexture(gl.TEXTURE1 + unit);
 		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
-		gl.uniform1i(uSampler, unit);		// tell sampler that our texture uses slot 'unit' (should be 0)
+		gl.uniform1i(uSampler, unit+1);		// tell sampler that our texture uses slot 'unit' (should be 1)
 		gl.uniform1i(uTextureMode, 2);		// tell shader to use texture
 	}
 	
@@ -89,7 +90,7 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl
 	}
 	
 	function dispose() {
-		gl.deleteTexture(this.texture);
+		gl.deleteTexture(self.texture);
 	}
 	
 	function generateCubeMap() {
@@ -100,7 +101,7 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl
 		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		
-		// not enough arguments??
+		// JS says 'not enough arguments' if image is null!
 		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveX);
 		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeX);
 		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveY);
@@ -108,7 +109,7 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl
 		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveZ);
 		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeZ);
 
-		gl.bindTexture(gl.TEXTURE_2D, null);
+		gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
 		
 		loaded = true;
 	}
@@ -120,7 +121,6 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl
 	}
 	
 	function loadImage(src, img) {
-		img        = new Image();
 		img.onload = imageLoaded;
 		img.src    = src;
 	}
@@ -140,7 +140,7 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl
 TextureCubeMap.prototype = new Texture();
 TextureCubeMap.prototype.constructor = TextureCubeMap;
 
-var Mesh = function(){ // dirty solution! no proper separation	
+var Mesh = function(){
 	this.width;
 	this.height;
 	this.depth;
@@ -154,7 +154,9 @@ var Mesh = function(){ // dirty solution! no proper separation
 	this.numItems;
 	this.hasTexture;
 	
-	this.generateGeometry = function(geometry, gl){
+	this.generateGeometry = function(geometry, createSkybox, gl){
+		if (createSkybox)
+			this.texCoordItemSize = 3;
 		var vertices  = new Array(this.numItems * this.vertexItemSize);
 		var normals   = new Array(this.numItems * this.normalItemSize);
 		var texCoords = new Array(this.numItems * this.texCoordItemSize);
@@ -202,6 +204,8 @@ var Mesh = function(){ // dirty solution! no proper separation
 							texCoords[ti+1] = 0.0;
 							break;
 					}
+					if (createSkybox)
+						texCoords[ti+2] = (y < 2) ? 1.0 : 0.0;
 				} else if (y < 8) { // left and right face
 					normals[vi+0] = (y < 6) ? -1.0 : 1.0;
 					normals[vi+1] = 0.0;
@@ -225,6 +229,8 @@ var Mesh = function(){ // dirty solution! no proper separation
 							texCoords[ti+1] = 0.0;
 							break;
 					}
+					if (createSkybox)
+						texCoords[ti+2] = (y < 6) ? 4.0 : 5.0;
 				} else { // y < 12 (top and bottom face)
 					normals[vi+0] = 0.0;
 					normals[vi+1] = (y < 10) ? 1.0 : -1.0;
@@ -248,10 +254,12 @@ var Mesh = function(){ // dirty solution! no proper separation
 							texCoords[ti+1] = 0.0;
 							break;
 					}
+					if (createSkybox)
+						texCoords[ti+2] = (y < 10) ? 2.0 : 3.0;
 				}
 				
-				vi += 3;
-				ti += 2;
+				vi += this.vertexItemSize;
+				ti += this.texCoordItemSize;
 			}
 		}
 		
@@ -340,7 +348,7 @@ function Skybox(gl) {
 	this.height = size;
 	this.depth  = size;
 	
-	this.generateGeometry(geometry, gl);
+	this.generateGeometry(geometry, true, gl);
 }
 Skybox.prototype = new Mesh();
 Skybox.prototype.constructor = Skybox;
@@ -366,7 +374,7 @@ var Platform = function(gl, width, height){
 		[-halfWidth, -halfHeight, -depth]
 	];
 
-	this.generateGeometry(geometry, gl);
+	this.generateGeometry(geometry, false, gl);
 };
 Platform.prototype = new Mesh();
 Platform.prototype.constructor = Platform;
@@ -392,7 +400,7 @@ var Box = function(gl){
 	this.height = size;
 	this.depth  = size;
 	
-	this.generateGeometry(geometry, gl);
+	this.generateGeometry(geometry, false, gl);
 };
 Box.prototype = new Mesh();
 Box.prototype.constructor = Box;
@@ -419,7 +427,7 @@ var Concrete = function(gl){
 	this.height = size;
 	this.depth  = depth;
 	
-	this.generateGeometry(geometry, gl);
+	this.generateGeometry(geometry, false, gl);
 };
 Concrete.prototype = new Mesh();
 Concrete.prototype.constructor = Concrete;
@@ -447,7 +455,7 @@ var Trigger = function(gl){
 	this.height = size;
 	this.depth  = depth;
 	
-	this.generateGeometry(geometry, gl);
+	this.generateGeometry(geometry, false, gl);
 };
 Trigger.prototype = new Mesh();
 Trigger.prototype.constructor = Trigger;

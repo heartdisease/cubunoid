@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Cubunoid 1.0b</title>
+		<title>Cubunoid 1.0b2</title>
 		<script src="js/utils/webgl-utils.js" type="text/javascript"></script>
 		<script src="js/utils/gl-matrix-min.js" type="text/javascript"></script>
 		<script src="js/geometry.js" type="text/javascript"></script>
@@ -16,7 +16,7 @@
 			
 			attribute vec3 aVertex;
 			attribute vec3 aNormal;
-			attribute vec2 aTexCoord;
+			attribute vec3 aTexCoord;
 
 			uniform mat4 uNMatrix;
 			uniform mat4 uMvMatrix;
@@ -27,7 +27,7 @@
 			
 			varying vec4 vColor;
 			varying vec3 vNormal;
-			varying vec2 vTexCoord;
+			varying vec3 vTexCoord;
 			varying vec3 vEye;
 			
 			void main(void) {
@@ -93,7 +93,7 @@
 			
 			varying vec4 vColor;
 			varying vec3 vNormal;
-			varying vec2 vTexCoord;
+			varying vec3 vTexCoord;
 			varying vec3 vEye;
 			
 			uniform sampler2D   uSampler;
@@ -109,17 +109,14 @@
 				if (uUsePicking) {
 					gl_FragColor = uBoxId;
 				} else {
-					if (uTextureMode == 1) {
-						color = texture2D(uSampler, vTexCoord);
-					} else if (uTextureMode == 2) {
-						gl_FragColor = textureCube(uSamplerCube, vec3(vTexCoord, 0.0)); // TODO: missing z-tex-coord!
-						return;
+					if (uTextureMode == 2) {
+						gl_FragColor = textureCube(uSamplerCube, vTexCoord);
 					} else {
-						color = vColor;
+						color = (uTextureMode == 1) ? texture2D(uSampler, vTexCoord.st) : vColor;
+						if (uHighlight)
+							color *= vec4(10.0, 1.2, 1.2, 1.0);
+						gl_FragColor = phong(color, vNormal, vEye);
 					}
-					if (uHighlight)
-						color *= vec4(10.0, 1.2, 1.2, 1.0);
-					gl_FragColor = phong(color, vNormal, vEye);
 				}
 				
 				/* from http://games.greggman.com/game/webgl-techniques-and-performance/

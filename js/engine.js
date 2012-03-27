@@ -151,7 +151,7 @@ var Cubunoid = function(id){
 			shaderVariables.aVertex,
 			shaderVariables.aNormal,
 			shaderVariables.aTexCoord,
-			(obj == objects.skybox) ? shaderVariables.uSamplerCube : shaderVariables.uSampler,
+			(obj.name == "skybox") ? shaderVariables.uSamplerCube : shaderVariables.uSampler,
 			shaderVariables.uTextureMode
 		);
 	};
@@ -287,19 +287,19 @@ var Cubunoid = function(id){
 	};
 	
 	var getShaderVariables = function(){
-		shaderVariables.aVertex     = gl.getAttribLocation(program, "aVertex");
-		shaderVariables.aNormal     = gl.getAttribLocation(program, "aNormal");
-		shaderVariables.aTexCoord   = gl.getAttribLocation(program, "aTexCoord");
+		shaderVariables.aVertex      = gl.getAttribLocation(program, "aVertex");
+		shaderVariables.aNormal      = gl.getAttribLocation(program, "aNormal");
+		shaderVariables.aTexCoord    = gl.getAttribLocation(program, "aTexCoord");
 		
-		shaderVariables.uUsePicking = gl.getUniformLocation(program, "uUsePicking");
+		shaderVariables.uUsePicking  = gl.getUniformLocation(program, "uUsePicking");
 		shaderVariables.uTextureMode = gl.getUniformLocation(program, "uTextureMode");
-		shaderVariables.uHighlight  = gl.getUniformLocation(program, "uHighlight");
-		shaderVariables.uBoxId      = gl.getUniformLocation(program, "uBoxId");
-		shaderVariables.uSampler    = gl.getUniformLocation(program, "uSampler");
+		shaderVariables.uHighlight   = gl.getUniformLocation(program, "uHighlight");
+		shaderVariables.uBoxId       = gl.getUniformLocation(program, "uBoxId");
+		shaderVariables.uSampler     = gl.getUniformLocation(program, "uSampler");
 		shaderVariables.uSamplerCube = gl.getUniformLocation(program, "uSamplerCube");
-		shaderVariables.uNMatrix    = gl.getUniformLocation(program, "uNMatrix");
-		shaderVariables.uMvMatrix   = gl.getUniformLocation(program, "uMvMatrix");
-		shaderVariables.uMvpMatrix  = gl.getUniformLocation(program, "uMvpMatrix");
+		shaderVariables.uNMatrix     = gl.getUniformLocation(program, "uNMatrix");
+		shaderVariables.uMvMatrix    = gl.getUniformLocation(program, "uMvMatrix");
+		shaderVariables.uMvpMatrix   = gl.getUniformLocation(program, "uMvpMatrix");
 		
 		gl.enableVertexAttribArray(shaderVariables.aVertex);
 		gl.enableVertexAttribArray(shaderVariables.aNormal);

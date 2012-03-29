@@ -23,7 +23,7 @@
 			uniform mat4 uMvpMatrix;
 			uniform int  uTextureMode;
 			
-			vec3 eyePos = vec3(0.0, 0.0, 0.0);
+			vec3 eyePos = normalize(vec3(1.0, 1.0, 1.0));
 			
 			varying vec4 vColor;
 			varying vec3 vNormal;
@@ -34,10 +34,14 @@
 				vColor      = vec4(aNormal, 1.0);
 				vNormal     = normalize((uNMatrix * vec4(aNormal, 1.0)).xyz);
 				vEye        = normalize((uMvMatrix * vec4(eyePos, 1.0)).xyz);
-				if (uTextureMode != 0)
-					vTexCoord = aTexCoord;
 				
-				gl_Position = uMvpMatrix * vec4(aVertex, 1.0);
+				vec4 finalPos = uMvpMatrix * vec4(aVertex, 1.0);
+				if (uTextureMode == 1)
+					vTexCoord = aTexCoord;
+				else if (uTextureMode == 2)
+					vTexCoord = normalize(-aVertex);
+				
+				gl_Position = finalPos;
 			}
 		</script>
 		<script id="shader-fs-phong" type="x-shader/x-fragment">

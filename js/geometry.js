@@ -205,7 +205,7 @@ var Mesh = function(){
 							break;
 					}
 					if (createSkybox)
-						texCoords[ti+2] = (y < 2) ? 1.0 : 0.0;
+						texCoords[ti+2] = (y < 2) ? +1.0 : -1.0;
 				} else if (y < 8) { // left and right face
 					normals[vi+0] = (y < 6) ? -1.0 : 1.0;
 					normals[vi+1] = 0.0;
@@ -230,7 +230,7 @@ var Mesh = function(){
 							break;
 					}
 					if (createSkybox)
-						texCoords[ti+2] = (y < 6) ? 4.0 : 5.0;
+						texCoords[ti+2] = (y < 6) ? 1.0 : 0.0;
 				} else { // y < 12 (top and bottom face)
 					normals[vi+0] = 0.0;
 					normals[vi+1] = (y < 10) ? 1.0 : -1.0;
@@ -255,8 +255,16 @@ var Mesh = function(){
 							break;
 					}
 					if (createSkybox)
-						texCoords[ti+2] = (y < 10) ? 2.0 : 3.0;
+						texCoords[ti+2] = (y < 10) ? 1.0 : 0.0;
 				}
+				
+				if (createSkybox) { // y-flip texture coordinates
+					//texCoords[ti+0] = (texCoords[ti+0] == 0.0) ? 1.0 : 0.0;
+				}
+				
+				// debug purposes only!
+				//if (createSkybox)
+					//texCoords[ti+2] = 0.0;
 				
 				vi += this.vertexItemSize;
 				ti += this.texCoordItemSize;

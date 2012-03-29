@@ -58,7 +58,7 @@ var Cubunoid = function(id){
 		trigger:  new Array(),
 		concrete: new Array()
 	};
-	var rotX = -MAX_RAD/9.0;
+	var rotX = -MAX_RAD/6.0;
 	var rotZ = 0.0;
 	var zDistance = 0.0;
 	
@@ -71,6 +71,7 @@ var Cubunoid = function(id){
 		
 		gl.clearColor(1.0, 1.0, 1.0, 1.0);
     	gl.enable(gl.DEPTH_TEST);
+    	//gl.enable(gl.TEXTURE_CUBE_MAP_SEAMLESS);
     	
 		gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 		gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
@@ -124,7 +125,7 @@ var Cubunoid = function(id){
 		deletePickingBuffer();
 		initPickingBuffer();
 		
-		mat4.perspective(45, canvas.width/canvas.height, 0.1, 100.0, pMatrix);
+		mat4.perspective(90, canvas.width/canvas.height, 0.1, 100.0, pMatrix);
 	};
 	
 	var uploadMatrices = function(modelView, calcNM){
@@ -236,6 +237,10 @@ var Cubunoid = function(id){
 			drawObjects(objects.boxes);
 			drawObjects(objects.concrete);
 			drawObjects(objects.trigger);
+			// recalculate matrix
+			mat4.identity(mvMatrix);
+			mat4.rotate(mvMatrix, -rotZ, [0.0, 1.0, 0.0]);
+			//mat4.rotate(mvMatrix, -rotX, [1.0, 0.0, 0.0]);
 			drawSkybox(); // draw skybox at last (performance reasons)
 		}
 	};
@@ -457,11 +462,12 @@ var Cubunoid = function(id){
 		// generate skybox (only once)
 		if (!meshes.skybox) {
 			meshes.skybox = new Skybox(gl);
+			// had to swap neg.Y with pos.Y
 			meshes.skybox.loadTextureCube(
 				"textures/terrain_positive_x.png",
 				"textures/terrain_negative_x.png",
-				"textures/terrain_positive_y.png",
 				"textures/terrain_negative_y.png",
+				"textures/terrain_positive_y.png",
 				"textures/terrain_positive_z.png",
 				"textures/terrain_negative_z.png"
 			);
@@ -509,7 +515,7 @@ var Cubunoid = function(id){
 			concrete: objects.concrete,
 			switches: objects.trigger
 		};
-		zDistance = Math.max(map.width, map.height) + 3.0;
+		zDistance = Math.max(map.width, map.height) + 0.5;
 		
 		active = true; // enable rendering
 		paintGL();     // start render loop

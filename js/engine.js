@@ -21,7 +21,7 @@ var Cubunoid = function(id){
 	var nMatrix   = mat4.create(); // normal matrix
 	var mvMatrix  = mat4.create(); // model-view matrix
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
-	var level     = 0;
+	var level     = new Number(0);
 	var levels    = [map1, map2, map3, map4, map5, map6];
 	var shaderVariables = {
 		aVertex:        -1,
@@ -347,6 +347,10 @@ var Cubunoid = function(id){
 			objects.boxes[i].selected = (i == n);	
 	}
 	
+	var nextLevel = function(){
+		return ++level;
+	};
+	
 	var shiftBox = function(dir){
 		var pos;
 		var box;
@@ -374,7 +378,7 @@ var Cubunoid = function(id){
 							if (levelRef+1 >= levelsRef.length)
 								window.alert("Congratulations! You've mastered all quests!");
 							else
-								loadMap(++levelRef);
+								loadMap(nextLevel());
 						}
 						
 						//console.log("animation has ended.");

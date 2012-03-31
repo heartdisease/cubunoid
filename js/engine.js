@@ -3,11 +3,14 @@
 
 // OpenGL Framebuffers: http://www.swiftless.com/tutorials/opengl/framebuffer.html (!!)
 
-var DEG45_RAD  = Math.PI / 4;
-var DEG135_RAD = DEG45_RAD * 3;
-var DEG225_RAD = DEG45_RAD * 5;
-var DEG315_RAD = DEG45_RAD * 7;
-var MAX_RAD    = Math.PI * 2;
+/*const*/ var DEG45_RAD  = Math.PI / 4;
+/*const*/ var DEG135_RAD = DEG45_RAD * 3;
+/*const*/ var DEG225_RAD = DEG45_RAD * 5;
+/*const*/ var DEG315_RAD = DEG45_RAD * 7;
+/*const*/ var MAX_RAD    = Math.PI * 2;
+
+/*const*/ var DEFAULT_ROT_X = -MAX_RAD/6.0;
+/*const*/ var DEFAULT_ROT_Z = 0.0;
 
 var Cubunoid = function(id){
 	var canvas    = document.getElementById(id);
@@ -23,6 +26,9 @@ var Cubunoid = function(id){
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
 	var level     = new Number(0);
 	var levels    = [map1, map2, map3, map4, map5, map6];
+	var animations = {
+		platformRotation: null
+	};
 	var shaderVariables = {
 		aVertex:        -1,
 		aNormal:        -1,
@@ -58,8 +64,8 @@ var Cubunoid = function(id){
 		trigger:  new Array(),
 		concrete: new Array()
 	};
-	var rotX = -MAX_RAD/6.0;
-	var rotZ = 0.0;
+	var rotX = DEFAULT_ROT_X;
+	var rotZ = DEFAULT_ROT_Z;
 	var zDistance = 0.0;
 	
 	this.initGL = function(){
@@ -321,7 +327,7 @@ var Cubunoid = function(id){
 			return 3;
 	};
 	
-	var rotate = function(rz, rx){
+	function rotate(rz, rx) {
 		if (rotZ >= MAX_RAD) {
 			rotZ -= MAX_RAD - rz;
 			//console.log("Hop back to: " + rotZ);
@@ -340,6 +346,12 @@ var Cubunoid = function(id){
 			rotX += rx;
 		
 		//console.log("Rotation: " + rotZ + "rad (" + (rotZ/MAX_RAD*360) + " deg)");
+	}
+	
+	var rotatePlatform = function(){
+		rotX = DEFAULT_ROT_X;
+		var localRotate = rotate;
+		animations.platformRotation = window.setInterval(function(){ localRotate(0.01, 0.0); }, 30);
 	};
 	
 	function changeBoxSelection(n) {
@@ -348,7 +360,40 @@ var Cubunoid = function(id){
 	}
 	
 	var nextLevel = function(){
-		return ++level;
+		document.querySelector("#levelDialog").className = "fadeOut";
+		if (animations.platformRotation)
+			window.clearInterval(animations.platformRotation);
+		rotX = DEFAULT_ROT_X;
+		rotZ = DEFAULT_ROT_Z;
+		loadMap(++level);
+		input.setLocked(false);
+		
+		console.log("goto next level");
+	};
+	
+	var showErrorSignal = function(){
+		var error_signal = document.querySelector("#error_signal");
+		
+		error_signal.className = "fadeIn";
+		window.setTimeout(function(){ error_signal.className = "fadeOut"; }, 700);
+	};
+	
+	var showLevelDialog = function(){
+		var levelDialog = document.querySelector("#levelDialog");
+		var textBox     = levelDialog.getElementsByTagName("p")[0];
+		var button      = levelDialog.getElementsByTagName("button")[0];
+		
+		if (levelRef+1 >= levelsRef.length) {
+			textBox.innerHTML = "Congratulations! You've mastered all quests!";
+			button.style.visibility = "hidden";
+		} else {
+			textBox.innerHTML = "Congratulations!<br />You've mastered level " + (level+1) + "!";
+			button.innerHTML  = "Go to level " + (level+2);
+			button.onclick    = nextLevel;
+		}
+		
+		levelDialog.className = "fadeIn";
+		console.log("show level dialog");
 	};
 	
 	var shiftBox = function(dir){
@@ -361,7 +406,7 @@ var Cubunoid = function(id){
 			if (objects.boxes[i].selected) {
 				pos = window.shiftBox(objects.boxes[i], dir);
 				if (pos == null) {
-					window.alert("Invalid move!");
+					showErrorSignal();
 				} else {
 					input.setLocked(true);
 					inputRef  = input; // 'input' is out of scope for nested function
@@ -370,18 +415,13 @@ var Cubunoid = function(id){
 					
 					var animation = new Animation(objects.boxes[i], pos, dir, 1.0);
 					animation.addEventListener("exit", function(){
-						inputRef.setLocked(false);
-		
 						// check if player has completed level
 						if (isGameOver()) {
-							window.alert("Level complete!");
-							if (levelRef+1 >= levelsRef.length)
-								window.alert("Congratulations! You've mastered all quests!");
-							else
-								loadMap(nextLevel());
+							rotatePlatform();
+							showLevelDialog();
+						} else {
+							input.setLocked(false);
 						}
-						
-						//console.log("animation has ended.");
 					});
 					animation.start();
 				}

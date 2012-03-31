@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Cubunoid 1.0b3</title>
+		<title>Cubunoid 1.0b5</title>
 		<script src="js/utils/webgl-utils.js" type="text/javascript"></script>
 		<script src="js/utils/gl-matrix-min.js" type="text/javascript"></script>
 		<script src="js/geometry.js" type="text/javascript"></script>
@@ -139,6 +139,7 @@
 		<style>
 			body {
 				text-align: center;
+				font-family: sans-serif;
 				margin: 0;
 			}
 			
@@ -152,7 +153,51 @@
 				position: absolute;
 				top: 0; left: 0;
 				width: 100%; height: 100%;
-				z-index: 3;
+			}
+			
+			#error_signal {
+				position: absolute;
+				width: 100px;
+				height: 100px;
+				left: 50%;
+				top: 50%;
+				margin-left: -50px;
+				margin-top: -50px;
+				z-index: 1;
+				background: url(textures/stop.png);
+			}
+			
+			#levelDialog {
+				position: absolute;
+				width: 350px;
+				height: 100px;
+				left: 50%;
+				top: 50%;
+				margin-left: -175px;
+				margin-top: -40px;
+				padding: 20px 20px 20px 20px;
+				z-index: 1;
+				background: rgba(120, 120, 120, 0.8);
+				color: #efefef;
+				font-weight: bold;
+				text-align: center;
+				border-radius: 25px;
+				-moz-box-shadow: inset 0 0 5px #000000;
+				text-shadow: 2px 2px 0 #333;
+			}
+			
+			/*#levelDialog button {
+				margin-bottom: 20px;
+			}*/
+			
+			div.fadeOut {
+				-moz-transition: opacity 500ms linear;
+				opacity: 0.0;
+			}
+			
+			div.fadeIn {
+				-moz-transition: opacity 300ms linear;
+				opacity: 1.0;
 			}
 			
 			.switch {
@@ -175,13 +220,11 @@
 			Your browser does not support the &lt;canvas&gt; element!
 		</canvas>
 		
-		<!--<div id="canvas"></div>
-		<div style="position: absolute; float: left;">
-			<button onclick="initMap(map1);">Load map 1</button>
-			<button onclick="initMap(map2);">Load map 2</button>
-			<button onclick="initMap(map3);">Load map 3</button>
-			<button onclick="initMap(map4);">Load map 4</button>
-			<button onclick="initMap(map5);">Load map 5</button>
-		</div>-->
+		<div id="error_signal" class="fadeOut"></div>
+		
+		<div id="levelDialog" class="fadeOut">
+			<p>&nbsp;</p>
+			<button>&nbsp;</button>
+		</div>
 	</body>
 </html>

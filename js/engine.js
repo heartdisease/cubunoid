@@ -26,30 +26,15 @@ var Cubunoid = function(id){
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
 	var level     = new Number(0);
 	var levels    = [map1, map2, map3, map4, map5, map6];
+	var shaderVariables = null; // always stores the variable locations of the current program
 	var animations = {
 		platformRotation: null
 	};
-	var shaderVariables = {
-		aVertex:        -1,
-		aNormal:        -1,
-		aTexCoord:      -1,
-		uTextureMode: null,
-		uUsePicking:  null,
-		uHighlight:   null,
-		uSampler:     null,
-		uSamplerCube: null,
-		uBoxId:       null,
-		uNMatrix:     null,
-		uMvMatrix:    null,
-		uMvpMatrix:   null
+	var programs = {
+		standard: null,
+		skybox:   null
 	};
-	var pickingBuffer = {
-		frameBuffer:  null,
-		renderBuffer: null,
-		texture:      null,
-		pickX:           0,
-		pickY:           0
-	};
+	var pickingBuffer = null;
 	var meshes = { // geometry for game objects
 		skybox:   null,
 		platform: null,
@@ -68,7 +53,14 @@ var Cubunoid = function(id){
 	var rotZ = DEFAULT_ROT_Z;
 	var zDistance = 0.0;
 	
+	function adjustCanvasSize() {
+		canvas.width  = window.innerWidth;
+		canvas.height = window.innerHeight;
+	}
+	
 	this.initGL = function(){
+		adjustCanvasSize();
+		
 		gl = WebGLUtils.setupWebGL(canvas, {preserveDrawingBuffer: true}); // option needed for gl.readPixels
 		if (!gl) {
 			window.alert("Fatal error: cannot initialize WebGL context!");
@@ -79,57 +71,69 @@ var Cubunoid = function(id){
     	gl.enable(gl.DEPTH_TEST);
     	//gl.enable(gl.TEXTURE_CUBE_MAP_SEAMLESS);
     	
-		gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-		gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
+		//gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+		//gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
     	
-		window.addEventListener("resize", this.resizeGL, false);
 		input = new InputManager(this.eventHandler, this.mouseHandler, this.pickHandler);
+		pickingBuffer = new FrameBuffer(gl, canvas.width, canvas.height);
+		pickingBuffer.pickX = pickingBuffer.pickY = 0;
+		
+		window.addEventListener("resize", this.resizeGL, false);
 	};
 	
-	function initPickingBuffer() {
-		// create frame buffer
-		pickingBuffer.frameBuffer  = gl.createFramebuffer();
-		gl.bindFramebuffer(gl.FRAMEBUFFER, pickingBuffer.frameBuffer);
-		gl.viewport(0, 0, canvas.width, canvas.height); // set viewport for framebuffer
+	this.initShaders = function(){
+		var vertexShader   = new Shader(gl, "shader-vs", gl.VERTEX_SHADER);
+		var fragmentShader = new Shader(gl, "shader-fs", gl.FRAGMENT_SHADER);
 		
-		// create render buffer
-		pickingBuffer.renderBuffer = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, pickingBuffer.renderBuffer);		
+		vertexShader.compile();
+		fragmentShader.compile();
 		
-		// create texture to render to
-		pickingBuffer.texture = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, pickingBuffer.texture);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		programs.standard  = new Program(gl, vertexShader, fragmentShader);
+		programs.standard.link();
+		programs.standard.locations = {
+			aVertex:      programs.standard.getAttribLocation("aVertex"),
+			aNormal:      programs.standard.getAttribLocation("aNormal"),
+			aTexCoord:    programs.standard.getAttribLocation("aTexCoord"),
+			uTextureMode: programs.standard.getUniformLocation("uTextureMode"),
+			uUsePicking:  programs.standard.getUniformLocation("uUsePicking"),
+			uHighlight:   programs.standard.getUniformLocation("uHighlight"),
+			uSampler:     programs.standard.getUniformLocation("uSampler"),
+			uSamplerCube: programs.standard.getUniformLocation("uSamplerCube"),
+			uBoxId:       programs.standard.getUniformLocation("uBoxId"),
+			uNMatrix:     programs.standard.getUniformLocation("uNMatrix"),
+			uMvMatrix:    programs.standard.getUniformLocation("uMvMatrix"),
+			uMvpMatrix:   programs.standard.getUniformLocation("uMvpMatrix")
+		};
+		shaderVariables = programs.standard.locations;
 		
-		// configure render buffer and apply it to frame buffer
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, canvas.width, canvas.height);
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pickingBuffer.texture, 0);
-		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, pickingBuffer.renderBuffer);
-		
-		// unbind buffers and texture
-		gl.bindTexture(gl.TEXTURE_2D, null);
-		gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	}
+		programs.standard.use();		
+		gl.enableVertexAttribArray(shaderVariables.aVertex);
+		gl.enableVertexAttribArray(shaderVariables.aNormal);
+	};
 	
-	function deletePickingBuffer() {
-		if (pickingBuffer.texture)
-			gl.deleteTexture(pickingBuffer.texture);
-		if (pickingBuffer.renderBuffer)
-			gl.deleteRenderbuffer(pickingBuffer.renderBuffer);
-		if (pickingBuffer.frameBuffer)
-			gl.deleteFramebuffer(pickingBuffer.frameBuffer);
-	}
+	this.initOverlays = function() {
+		var levelDialog = document.querySelector("#levelDialog");
+		var errorSignal = document.querySelector("#error_signal");
+		var transEndFunc = function(e){
+			if (e.target.className == "fadeOut") {
+				e.target.zIndex = 1;
+				console.log("faded out.");
+			}
+		};
+		
+		levelDialog.addEventListener("transitionend", transEndFunc, false);
+		levelDialog.addEventListener("webkitTransitionEnd", transEndFunc, false);
+		
+		errorSignal.addEventListener("transitionend", transEndFunc, false);
+		errorSignal.addEventListener("webkitTransitionEnd", transEndFunc, false);
+	};
 	
 	this.resizeGL = function(){
-		canvas.width  = window.innerWidth;
-		canvas.height = window.innerHeight;
+		adjustCanvasSize();
 		
 		console.log("Set viewport to " + canvas.width + "x" + canvas.height);
 		gl.viewport(0, 0, canvas.width, canvas.height);
-		// create new  frame buffer
-		deletePickingBuffer();
-		initPickingBuffer();
+		pickingBuffer.resize(canvas.width, canvas.height);
 		
 		mat4.perspective(90, canvas.width/canvas.height, 0.1, 100.0, pMatrix);
 	};
@@ -175,7 +179,8 @@ var Cubunoid = function(id){
 	
 	/** Renders an array with game objects (like boxes, trigger, ...) */
 	var drawObjects = function(array){
-		var modelView1 = mat4.create(), modelView2 = mat4.create();
+		var modelView1 = mat4.create();
+		var modelView2 = mat4.create();
 		var halfBoxSize;
 		var xOffset, yOffset;
 		
@@ -201,9 +206,10 @@ var Cubunoid = function(id){
 	
 	var paintGL = function(){
 		if (active) {
-			window.setTimeout(function(){ window.requestAnimFrame(paintGL); }, 33);
-			//window.requestAnimFrame(paintGL);
-		} else {return;}
+			window.requestAnimFrame(paintGL);
+		} else {
+			return;
+		}
 		
 		// calculate transformation matrices
 		mat4.identity(mvMatrix);
@@ -214,25 +220,21 @@ var Cubunoid = function(id){
 		// activate or deactivate picking
 		gl.uniform1i(shaderVariables.uUsePicking, picking ? 1 : 0);
 		if (picking) {
+			var pickID; // Uint8Array(4)
+			
 			// bind frame buffer
-			gl.bindFramebuffer(gl.FRAMEBUFFER, pickingBuffer.frameBuffer);
+			pickingBuffer.bind();
 			// clear framebuffer
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			// draw data
 			drawPlatform();
 			drawObjects(objects.boxes);
 			// evaluate picking result
-			var pickID = new Uint8Array(4);
-			// in WebGL 1.0 readPixels only works with UNSIGNED_BYTE!
-			// IMPORTANT NOTE: frame buffers store pixels vertically mirrored!
-			gl.readPixels(pickingBuffer.pickX, canvas.height - pickingBuffer.pickY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pickID);
-			
-			// do something
+			pickID = pickingBuffer.readPixel(pickingBuffer.pickX, pickingBuffer.pickY);
 			console.log("Picked @ x:" + pickingBuffer.pickX + "/y:" + pickingBuffer.pickY + " ID: [" + pickID[0] + ", " + pickID[1] + ", " + pickID[2] + ", " + pickID[3] + "]");
 			changeBoxSelection(Math.ceil(pickID[2]/255*10) - 1);
-			
 			// unbind framebuffer und disable picking
-			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			pickingBuffer.unbind();
 			picking = false;
 			//active = false;
 		} else {
@@ -249,71 +251,6 @@ var Cubunoid = function(id){
 			//mat4.rotate(mvMatrix, -rotX, [1.0, 0.0, 0.0]);
 			drawSkybox(); // draw skybox at last (performance reasons)
 		}
-	};
-	
-	this.attachShader = function(id, altId){
-		var shader;
-		var shaderSource;
-		var shaderScript = document.getElementById(id);
-
-		if (shaderScript.type == "x-shader/x-fragment")
-			shader = gl.createShader(gl.FRAGMENT_SHADER);
-		else if (shaderScript.type == "x-shader/x-vertex")
-			shader = gl.createShader(gl.VERTEX_SHADER);
-		else {
-			console.log("ERROR: Cannot create shader of unknown type!");
-		}
-		shaderSource = shaderScript.innerHTML;
-		if (altId)
-			shaderSource = shaderSource.replace("#import <"+altId+">", document.getElementById(altId).innerHTML);
-		
-		//console.log("Shader source: " + shaderSource);
-		
-		gl.shaderSource(shader, shaderSource);
-		gl.compileShader(shader);
-		if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-			console.log(id + ": " + gl.getShaderInfoLog(shader));
-		else
-			shaders.push(shader);
-
-	};
-	
-	var linkProgram = function(){
-		program = gl.createProgram();
-
-		for (var i in shaders)
-			gl.attachShader(program, shaders[i]);
-		gl.linkProgram(program);
-		if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-			console.log(gl.getProgramInfoLog(program));
-		else {
-			gl.useProgram(program);
-			console.log("use program.");
-		}
-	};
-	
-	this.useProgram = function(){
-		linkProgram();
-		getShaderVariables();
-	};
-	
-	var getShaderVariables = function(){
-		shaderVariables.aVertex      = gl.getAttribLocation(program, "aVertex");
-		shaderVariables.aNormal      = gl.getAttribLocation(program, "aNormal");
-		shaderVariables.aTexCoord    = gl.getAttribLocation(program, "aTexCoord");
-		
-		shaderVariables.uUsePicking  = gl.getUniformLocation(program, "uUsePicking");
-		shaderVariables.uTextureMode = gl.getUniformLocation(program, "uTextureMode");
-		shaderVariables.uHighlight   = gl.getUniformLocation(program, "uHighlight");
-		shaderVariables.uBoxId       = gl.getUniformLocation(program, "uBoxId");
-		shaderVariables.uSampler     = gl.getUniformLocation(program, "uSampler");
-		shaderVariables.uSamplerCube = gl.getUniformLocation(program, "uSamplerCube");
-		shaderVariables.uNMatrix     = gl.getUniformLocation(program, "uNMatrix");
-		shaderVariables.uMvMatrix    = gl.getUniformLocation(program, "uMvMatrix");
-		shaderVariables.uMvpMatrix   = gl.getUniformLocation(program, "uMvpMatrix");
-		
-		gl.enableVertexAttribArray(shaderVariables.aVertex);
-		gl.enableVertexAttribArray(shaderVariables.aNormal);
 	};
 	
 	var getPositionCode = function(){
@@ -348,19 +285,22 @@ var Cubunoid = function(id){
 		//console.log("Rotation: " + rotZ + "rad (" + (rotZ/MAX_RAD*360) + " deg)");
 	}
 	
-	var rotatePlatform = function(){
-		rotX = DEFAULT_ROT_X;
+	function rotatePlatform() {
 		var localRotate = rotate;
+		
+		rotX = DEFAULT_ROT_X;
 		animations.platformRotation = window.setInterval(function(){ localRotate(0.01, 0.0); }, 30);
-	};
+	}
 	
 	function changeBoxSelection(n) {
 		for (var i = 0; i < objects.boxes.length; ++i)
 			objects.boxes[i].selected = (i == n);	
 	}
 	
-	var nextLevel = function(){
-		document.querySelector("#levelDialog").className = "fadeOut";
+	function nextLevel() {
+		var levelDialog = document.querySelector("#levelDialog");
+		
+		levelDialog.className = "fadeOut";
 		if (animations.platformRotation)
 			window.clearInterval(animations.platformRotation);
 		rotX = DEFAULT_ROT_X;
@@ -369,22 +309,24 @@ var Cubunoid = function(id){
 		input.setLocked(false);
 		
 		console.log("goto next level");
-	};
+	}
 	
-	var showErrorSignal = function(){
-		var error_signal = document.querySelector("#error_signal");
+	function showErrorSignal() {
+		var errorSignal = document.querySelector("#error_signal");
 		
-		error_signal.className = "fadeIn";
-		window.setTimeout(function(){ error_signal.className = "fadeOut"; }, 700);
-	};
+		errorSignal.style.zIndex = 3;			// make container visible
+		errorSignal.className    = "fadeIn";	// start CSS transition
+
+		window.setTimeout(function(){ errorSignal.className = "fadeOut"; }, 700);
+	}
 	
-	var showLevelDialog = function(){
+	function showLevelDialog() {
 		var levelDialog = document.querySelector("#levelDialog");
 		var textBox     = levelDialog.getElementsByTagName("p")[0];
 		var button      = levelDialog.getElementsByTagName("button")[0];
 		
-		if (levelRef+1 >= levelsRef.length) {
-			textBox.innerHTML = "Congratulations! You've mastered all quests!";
+		if (level+1 >= levels.length) {
+			textBox.innerHTML       = "Congratulations!<br />You've mastered all quests!";
 			button.style.visibility = "hidden";
 		} else {
 			textBox.innerHTML = "Congratulations!<br />You've mastered level " + (level+1) + "!";
@@ -392,11 +334,11 @@ var Cubunoid = function(id){
 			button.onclick    = nextLevel;
 		}
 		
-		levelDialog.className = "fadeIn";
-		console.log("show level dialog");
-	};
+		levelDialog.style.zIndex = 3; // make container visible
+		levelDialog.className    = "fadeIn";
+	}
 	
-	var shiftBox = function(dir){
+	function shiftBox(dir) {
 		var pos;
 		var box;
 		var animation;
@@ -409,11 +351,8 @@ var Cubunoid = function(id){
 					showErrorSignal();
 				} else {
 					input.setLocked(true);
-					inputRef  = input; // 'input' is out of scope for nested function
-					levelRef  = level;
-					levelsRef = levels;
 					
-					var animation = new Animation(objects.boxes[i], pos, dir, 1.0);
+					animation = new Animation(objects.boxes[i], pos, dir, 1.0);
 					animation.addEventListener("exit", function(){
 						// check if player has completed level
 						if (isGameOver()) {
@@ -424,10 +363,11 @@ var Cubunoid = function(id){
 						}
 					});
 					animation.start();
+					break;
 				}
 			}
 		}
-	};
+	}
 	
 	this.eventHandler = function(action){
 		var dir;
@@ -496,14 +436,8 @@ var Cubunoid = function(id){
 		rotate((-xOffset/400), (-yOffset/400));
 	};
 	
-	var loadMap = this.loadMap = function(level){
-		var i;
-		var map = levels[level];
-		
-		active = false; // disable rendering
-		console.log("Create platform " + map.width + "x" + map.height);
-		
-		// generate skybox (only once)
+	function loadGeometry(map) {
+		// generate skybox
 		if (!meshes.skybox) {
 			meshes.skybox = new Skybox(gl);
 			// had to swap neg.Y with pos.Y
@@ -520,21 +454,32 @@ var Cubunoid = function(id){
 		// generate other geometry
 		if (!meshes.box) {
 			meshes.box = new Box(gl);
-			meshes.box.setTexture("textures/wood.jpg", gl);
+			meshes.box.setTexture("textures/2_store.jpg");
 		}
 		if (!meshes.concrete) {
 			meshes.concrete = new Concrete(gl);
-			meshes.concrete.setTexture("textures/ice.jpg", gl);
+			meshes.concrete.setTexture("textures/ice2.jpg");
 		}
 		if (!meshes.trigger) {
 			meshes.trigger = new Trigger(gl);
-			meshes.trigger.setTexture("textures/metalfloor.jpg", gl);
+			meshes.trigger.setTexture("textures/24_met.jpg");
 		}
 		if (meshes.platform)
-			meshes.platform.dispose(gl);
+			meshes.platform.dispose();
+		
 		meshes.platform            = new Platform(gl, map.width, map.height);
 		meshes.platform.texture    = meshes.concrete.texture;
 		meshes.platform.hasTexture = true;
+	}
+	
+	function loadMap(level){
+		var i;
+		var map = levels[level];
+		
+		active = false; // disable rendering
+		console.log("Create platform " + map.width + "x" + map.height);
+		
+		loadGeometry(map);
 		
 		// generate platform
 		objects.platform = new GameObject("platform", meshes.platform, 0.0, 0.0, -1);
@@ -563,5 +508,7 @@ var Cubunoid = function(id){
 		
 		active = true; // enable rendering
 		paintGL();     // start render loop
-	};
+	}
+	
+	this.loadMap = loadMap;
 };

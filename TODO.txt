@@ -1,0 +1,5 @@
+### TODO ###
+
+* implement own ShaderProgram-class [ShaderProgram("vertexShader", "fragmentShader")]
+* Change geometry containers to support drawElements instead of drawArrays (Hint: element-buffer can be 'global' for all cube-like objects)
+  - Remove unnecessary geometry-generator (with for's) through simple static array (with size multiplycations)

@@ -9,138 +9,32 @@ var GameObject = function(name, mesh, x, y, i){
 	this.colorID  = new Float32Array([0.0, 0.0, (i == -1) ? 0.0 : (0.1+i*0.1), 1.0]); // allows only 10 different IDs
 };
 
-function Texture() {
-	this.texture;
-	
-	this.bind;
-	this.isLoaded;
-	this.dispose;
-}
-
-function Texture2D(src, gl) {
-	var self    = this;
-	var loaded  = false;
-	var image   = new Image();
-	
-	function isLoaded() {
-		return loaded;
-	}
-	
-	function dispose() {
-		gl.deleteTexture(self.texture);
-	}
-	
-	function bind(uSampler, uTextureMode, unit) {
-		//console.log("bind tex on " + unit);
-		
-		gl.activeTexture(gl.TEXTURE0 + unit);
-		gl.bindTexture(gl.TEXTURE_2D, self.texture);
-		gl.uniform1i(uSampler, unit);		// tell sampler that our texture uses slot 'unit' (should be 0)
-		gl.uniform1i(uTextureMode, 1);		// tell shader to use texture
-	}
-	
-	image.onload = function(){
-		console.log("Create texture (" + image.width + "x" + image.height + ") ...");
-	
-		gl.bindTexture(gl.TEXTURE_2D, self.texture);
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); //gl.CLAMP_TO_EDGE
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-		gl.generateMipmap(gl.TEXTURE_2D);
-		gl.bindTexture(gl.TEXTURE_2D, null);
-	
-		loaded = true;
-	};
-	image.src = src;
-	
-	this.texture  = gl.createTexture();
-	this.bind     = bind;
-	this.isLoaded = isLoaded;
-	this.dispose  = dispose;
-}
-Texture2D.prototype = new Texture();
-Texture2D.prototype.constructor = Texture2D;
-
-// TODO: use own shader program for cube map!
-function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl) {
-	var self         = this;
-	var loaded       = false;
-	var loadedImages = 0;
-	var images       = {
-		positiveX: new Image(),
-		negativeX: new Image(),
-		positiveY: new Image(),
-		negativeY: new Image(),
-		positiveZ: new Image(),
-		negativeZ: new Image()
+function Mesh(gl) {
+	Mesh.numItems         = 36; // 6 vertices for each face (6)
+	Mesh.vertexItemSize   = 3;
+	Mesh.normalItemSize   = 3;
+	Mesh.texCoordItemSize = 2;
+	Mesh.elementBuffer    = null;
+	Mesh.createElementBuffer = function(gl) {
+		if (!Mesh.elementBuffer) {
+			 var elements = [
+			 	 0,  1,  2,    0,  2,  3, // +z
+			 	 4,  5,  6,    4,  6,  7, // -x
+			 	 8,  9, 10,    8, 10, 11, // -z
+			 	12, 13, 14,   12, 14, 15, // +x
+			 	16, 17, 18,   16, 18, 19, // +y
+			 	20, 21, 22,   20, 22, 23  // -y
+			 ];
+			 
+			 Mesh.elementBuffer = gl.createBuffer();
+			 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
+			 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(elements), gl.STATIC_DRAW);
+			 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+		}
 	};
 	
-	function bind(uSampler, uTextureMode, unit) {
-		gl.activeTexture(gl.TEXTURE1 + unit);
-		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
-		gl.uniform1i(uSampler, unit+1);		// tell sampler that our texture uses slot 'unit' (should be 1)
-		gl.uniform1i(uTextureMode, 2);		// tell shader to use texture
-	}
+	var gl;
 	
-	function isLoaded() {
-		return loaded;
-	}
-	
-	function dispose() {
-		gl.deleteTexture(self.texture);
-	}
-	
-	function generateCubeMap() {
-		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		
-		// JS says 'not enough arguments' if image is null!
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveX);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeX);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveY);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeY);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.positiveZ);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images.negativeZ);
-
-		gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
-		
-		loaded = true;
-	}
-	
-	function imageLoaded() {
-		console.log("Create cube map texture (" + loadedImages + ") ...");
-		if (++loadedImages == 6) // all textures have been loaded
-			generateCubeMap();
-	}
-	
-	function loadImage(src, img) {
-		img.onload = imageLoaded;
-		img.src    = src;
-	}
-	
-	loadImage(srcPosX, images.positiveX);
-	loadImage(srcNegX, images.negativeX);
-	loadImage(srcPosY, images.positiveY);
-	loadImage(srcNegY, images.negativeY);
-	loadImage(srcPosZ, images.positiveZ);
-	loadImage(srcNegZ, images.negativeZ);
-	
-	this.texture  = gl.createTexture();
-	this.bind     = bind;
-	this.isLoaded = isLoaded;
-	this.dispose  = dispose;
-}
-TextureCubeMap.prototype = new Texture();
-TextureCubeMap.prototype.constructor = TextureCubeMap;
-
-var Mesh = function(){
 	this.width;
 	this.height;
 	this.depth;
@@ -148,151 +42,108 @@ var Mesh = function(){
 	this.vertexBuffer;
 	this.normalBuffer;
 	this.texCoordBuffer;
-	this.vertexItemSize;
-	this.normalItemSize;
-	this.texCoordItemSize;
-	this.numItems;
 	this.hasTexture;
 	
-	this.generateGeometry = function(geometry, createSkybox, gl){
-		if (createSkybox)
-			this.texCoordItemSize = 3;
-		var vertices  = new Array(this.numItems * this.vertexItemSize);
-		var normals   = new Array(this.numItems * this.normalItemSize);
-		var texCoords = new Array(this.numItems * this.texCoordItemSize);
-		
-		// describes the order of vertices
-		var elements = [
-			[0, 1, 3], [1, 2, 3], // front face
-			[4, 5, 7], [5, 6, 7], // back face
-			[4, 0, 3], [4, 7, 3], // left face
-			[1, 5, 2], [5, 6, 2], // right face
-			[4, 5, 0], [5, 1, 0], // top face
-			[7, 6, 3], [6, 2, 3]  // bottom face
+	this.generateGeometry = function(glRef, geometry, createSkybox) {
+		var vertices = [
+			// +z
+			geometry[0][0], geometry[0][1], geometry[0][2],
+			geometry[1][0], geometry[1][1], geometry[1][2],
+			geometry[2][0], geometry[2][1], geometry[2][2],
+			geometry[3][0], geometry[3][1], geometry[3][2],
+			// -x
+			geometry[4][0], geometry[4][1], geometry[4][2],
+			geometry[0][0], geometry[0][1], geometry[0][2],
+			geometry[3][0], geometry[3][1], geometry[3][2],
+			geometry[7][0], geometry[7][1], geometry[7][2],
+			// -z
+			geometry[5][0], geometry[5][1], geometry[5][2],
+			geometry[4][0], geometry[4][1], geometry[4][2],
+			geometry[7][0], geometry[7][1], geometry[7][2],
+			geometry[6][0], geometry[6][1], geometry[6][2],
+			// +x
+			geometry[1][0], geometry[1][1], geometry[1][2],
+			geometry[5][0], geometry[5][1], geometry[5][2],
+			geometry[6][0], geometry[6][1], geometry[6][2],
+			geometry[2][0], geometry[2][1], geometry[2][2],
+			// +y
+			geometry[4][0], geometry[4][1], geometry[4][2],
+			geometry[5][0], geometry[5][1], geometry[5][2],
+			geometry[1][0], geometry[1][1], geometry[1][2],
+			geometry[0][0], geometry[0][1], geometry[0][2],
+			// -y
+			geometry[7][0], geometry[7][1], geometry[7][2],
+			geometry[6][0], geometry[6][1], geometry[6][2],
+			geometry[2][0], geometry[2][1], geometry[2][2],
+			geometry[3][0], geometry[3][1], geometry[3][2]
+		];
+		var normals = [
+			// +z
+			 0.0,  0.0,  1.0,
+			 0.0,  0.0,  1.0,
+			 0.0,  0.0,  1.0,
+			 0.0,  0.0,  1.0,
+			// -x
+			-1.0,  0.0,  0.0,
+			-1.0,  0.0,  0.0,
+			-1.0,  0.0,  0.0,
+			-1.0,  0.0,  0.0,
+			// -z
+			 0.0,  0.0, -1.0,
+			 0.0,  0.0, -1.0,
+			 0.0,  0.0, -1.0,
+			 0.0,  0.0, -1.0,
+			// +x
+			 1.0,  0.0,  0.0,
+			 1.0,  0.0,  0.0,
+			 1.0,  0.0,  0.0,
+			 1.0,  0.0,  0.0,
+			// +y
+			 0.0,  1.0,  0.0,
+			 0.0,  1.0,  0.0,
+			 0.0,  1.0,  0.0,
+			 0.0,  1.0,  0.0,
+			// -y
+			 0.0, -1.0,  0.0,
+			 0.0, -1.0,  0.0,
+			 0.0, -1.0,  0.0,
+			 0.0, -1.0,  0.0
+		];
+		var texCoords = [
+			// +z
+			0.0,  1.0,
+			1.0,  1.0,
+			1.0,  0.0,
+			0.0,  0.0,
+			// -x
+			0.0,  1.0,
+			1.0,  1.0,
+			1.0,  0.0,
+			0.0,  0.0,
+			// -z
+			0.0,  1.0,
+			1.0,  1.0,
+			1.0,  0.0,
+			0.0,  0.0,
+			// +x
+			0.0,  1.0,
+			1.0,  1.0,
+			1.0,  0.0,
+			0.0,  0.0,
+			// +y
+			0.0,  1.0,
+			1.0,  1.0,
+			1.0,  0.0,
+			0.0,  0.0,
+			// -y
+			0.0,  1.0,
+			1.0,  1.0,
+			1.0,  0.0,
+			0.0,  0.0
 		];
 		
-		var vi = 0, ti = 0;
-		var tmp;
-		for (var y = 0; y < elements.length; ++y) {
-			for (var x = 0; x < elements[y].length; ++x) {
-				tmp = geometry[elements[y][x]];
-				
-				vertices[vi+0] = tmp[0];
-				vertices[vi+1] = tmp[1];
-				vertices[vi+2] = tmp[2];
-				
-				if (y < 4) { // front and back face
-					normals[vi+0] = 0.0;
-					normals[vi+1] = 0.0;
-					normals[vi+2] = (y < 2) ? 1.0 : -1.0;
-					
-					switch (elements[y][x]) {
-						case 0: case 4:
-							texCoords[ti+0] = 0.0;
-							texCoords[ti+1] = 1.0;
-							break;
-						case 1: case 5:
-							texCoords[ti+0] = 1.0;
-							texCoords[ti+1] = 1.0;
-							break;
-						case 2: case 6:
-							texCoords[ti+0] = 1.0;
-							texCoords[ti+1] = 0.0;
-							break;
-						case 3: case 7:
-							texCoords[ti+0] = 0.0;
-							texCoords[ti+1] = 0.0;
-							break;
-					}
-					if (createSkybox)
-						texCoords[ti+2] = (y < 2) ? +1.0 : -1.0;
-				} else if (y < 8) { // left and right face
-					normals[vi+0] = (y < 6) ? -1.0 : 1.0;
-					normals[vi+1] = 0.0;
-					normals[vi+2] = 0.0;
-					
-					switch (elements[y][x]) {
-						case 4: case 5:
-							texCoords[ti+0] = 0.0;
-							texCoords[ti+1] = 1.0;
-							break;
-						case 0: case 1:
-							texCoords[ti+0] = 1.0;
-							texCoords[ti+1] = 1.0;
-							break;
-						case 7: case 6:
-							texCoords[ti+0] = 0.0;
-							texCoords[ti+1] = 0.0;
-							break;
-						case 3: case 2:
-							texCoords[ti+0] = 1.0;
-							texCoords[ti+1] = 0.0;
-							break;
-					}
-					if (createSkybox)
-						texCoords[ti+2] = (y < 6) ? 1.0 : 0.0;
-				} else { // y < 12 (top and bottom face)
-					normals[vi+0] = 0.0;
-					normals[vi+1] = (y < 10) ? 1.0 : -1.0;
-					normals[vi+2] = 0.0;
-					
-					switch (elements[y][x]) {
-						case 4: case 7:
-							texCoords[ti+0] = 0.0;
-							texCoords[ti+1] = 1.0;
-							break;
-						case 5: case 6:
-							texCoords[ti+0] = 1.0;
-							texCoords[ti+1] = 1.0;
-							break;
-						case 0: case 3:
-							texCoords[ti+0] = 0.0;
-							texCoords[ti+1] = 0.0;
-							break;
-						case 1: case 2:
-							texCoords[ti+0] = 1.0;
-							texCoords[ti+1] = 0.0;
-							break;
-					}
-					if (createSkybox)
-						texCoords[ti+2] = (y < 10) ? 1.0 : 0.0;
-				}
-				
-				if (createSkybox) { // y-flip texture coordinates
-					//texCoords[ti+0] = (texCoords[ti+0] == 0.0) ? 1.0 : 0.0;
-				}
-				
-				// debug purposes only!
-				//if (createSkybox)
-					//texCoords[ti+2] = 0.0;
-				
-				vi += this.vertexItemSize;
-				ti += this.texCoordItemSize;
-			}
-		}
-		
-		this.draw = function(aVertex, aNormal, aTexCoord, uSampler, uTextureMode){
-			// activate vertex buffer
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-			gl.vertexAttribPointer(aVertex, this.vertexItemSize, gl.FLOAT, false, 0, 0);
-			// activate normal buffer
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-			gl.vertexAttribPointer(aNormal, this.normalItemSize, gl.FLOAT, false, 0, 0);
-			// activate texture (if available)
-			if (this.hasTexture && this.texture.isLoaded()) {
-				gl.enableVertexAttribArray(aTexCoord);	// activate texcoord buffer
-			
-				gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-				gl.vertexAttribPointer(aTexCoord, this.texCoordItemSize, gl.FLOAT, false, 0, 0);
-			
-				this.texture.bind(uSampler, uTextureMode, 0);
-			} else {
-				gl.disableVertexAttribArray(aTexCoord);
-				gl.uniform1i(uTextureMode, 0);			// tell shader not to use texture
-			}
-			
-			gl.drawArrays(gl.TRIANGLES, 0, this.numItems);
-		};
+		gl = glRef;
+		Mesh.createElementBuffer(gl); // is is only done once
 		
 		this.vertexBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
@@ -305,26 +156,48 @@ var Mesh = function(){
 		this.texCoordBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, null);
 	};
 	
-	this.setTexture = function(src, gl){
+	this.draw = function(aVertex, aNormal, aTexCoord, uSampler, uTextureMode){
+		// activate vertex buffer
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+		gl.vertexAttribPointer(aVertex, Mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
+		// activate normal buffer
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+		gl.vertexAttribPointer(aNormal, Mesh.normalItemSize, gl.FLOAT, false, 0, 0);
+		// activate texture (if available)
+		if (this.hasTexture && this.texture.isLoaded()) {
+			gl.enableVertexAttribArray(aTexCoord);	// activate texcoord buffer
+		
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+			gl.vertexAttribPointer(aTexCoord, Mesh.texCoordItemSize, gl.FLOAT, false, 0, 0);
+		
+			this.texture.bind(uSampler, uTextureMode, 0);
+		} else {
+			gl.disableVertexAttribArray(aTexCoord);
+			gl.uniform1i(uTextureMode, 0);			// tell shader not to use texture
+		}
+		
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
+		gl.drawElements(gl.TRIANGLES, Mesh.numItems, gl.UNSIGNED_SHORT, 0);
+	};
+	
+	this.setTexture = function(src){
 		this.texture    = new Texture2D(src, gl);
 		this.hasTexture = true;
 	};
 	
 	/** Frees all WebGL resources (except textures!) */
-	this.dispose = function(gl){
+	this.dispose = function(){
 		gl.deleteBuffer(this.vertexBuffer);
 		gl.deleteBuffer(this.normalBuffer);
 		gl.deleteBuffer(this.texCoordBuffer);
 	};
 	
 	// construction code
-	this.hasTexture       = false;
-	this.vertexItemSize   = 3;
-	this.normalItemSize   = 3;
-	this.texCoordItemSize = 2;
-	this.numItems         = 36;
+	this.hasTexture = false;
 };
 
 /** class Skybox */
@@ -356,7 +229,7 @@ function Skybox(gl) {
 	this.height = size;
 	this.depth  = size;
 	
-	this.generateGeometry(geometry, true, gl);
+	this.generateGeometry(gl, geometry, true);
 }
 Skybox.prototype = new Mesh();
 Skybox.prototype.constructor = Skybox;
@@ -382,7 +255,7 @@ var Platform = function(gl, width, height){
 		[-halfWidth, -halfHeight, -depth]
 	];
 
-	this.generateGeometry(geometry, false, gl);
+	this.generateGeometry(gl, geometry, false);
 };
 Platform.prototype = new Mesh();
 Platform.prototype.constructor = Platform;
@@ -408,7 +281,7 @@ var Box = function(gl){
 	this.height = size;
 	this.depth  = size;
 	
-	this.generateGeometry(geometry, false, gl);
+	this.generateGeometry(gl, geometry, false);
 };
 Box.prototype = new Mesh();
 Box.prototype.constructor = Box;
@@ -435,7 +308,7 @@ var Concrete = function(gl){
 	this.height = size;
 	this.depth  = depth;
 	
-	this.generateGeometry(geometry, false, gl);
+	this.generateGeometry(gl, geometry, false);
 };
 Concrete.prototype = new Mesh();
 Concrete.prototype.constructor = Concrete;
@@ -463,7 +336,7 @@ var Trigger = function(gl){
 	this.height = size;
 	this.depth  = depth;
 	
-	this.generateGeometry(geometry, false, gl);
+	this.generateGeometry(gl, geometry, false);
 };
 Trigger.prototype = new Mesh();
 Trigger.prototype.constructor = Trigger;

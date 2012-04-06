@@ -61,7 +61,6 @@ function Program(gl, vertexShader, fragmentShader){
 	
 	function use() {
 		gl.useProgram(program);
-		console.log("use program.");
 	}
 	
 	function getAttribLocation(name) {

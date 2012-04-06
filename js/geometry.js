@@ -44,7 +44,9 @@ function Mesh(gl) {
 	this.texCoordBuffer;
 	this.hasTexture;
 	
-	this.generateGeometry = function(glRef, geometry, createSkybox) {
+	this.generateGeometry = function(glRef, geometry, verticesOnly) {
+		gl = glRef;
+		
 		var vertices = [
 			// +z
 			geometry[0][0], geometry[0][1], geometry[0][2],
@@ -77,90 +79,91 @@ function Mesh(gl) {
 			geometry[2][0], geometry[2][1], geometry[2][2],
 			geometry[3][0], geometry[3][1], geometry[3][2]
 		];
-		var normals = [
-			// +z
-			 0.0,  0.0,  1.0,
-			 0.0,  0.0,  1.0,
-			 0.0,  0.0,  1.0,
-			 0.0,  0.0,  1.0,
-			// -x
-			-1.0,  0.0,  0.0,
-			-1.0,  0.0,  0.0,
-			-1.0,  0.0,  0.0,
-			-1.0,  0.0,  0.0,
-			// -z
-			 0.0,  0.0, -1.0,
-			 0.0,  0.0, -1.0,
-			 0.0,  0.0, -1.0,
-			 0.0,  0.0, -1.0,
-			// +x
-			 1.0,  0.0,  0.0,
-			 1.0,  0.0,  0.0,
-			 1.0,  0.0,  0.0,
-			 1.0,  0.0,  0.0,
-			// +y
-			 0.0,  1.0,  0.0,
-			 0.0,  1.0,  0.0,
-			 0.0,  1.0,  0.0,
-			 0.0,  1.0,  0.0,
-			// -y
-			 0.0, -1.0,  0.0,
-			 0.0, -1.0,  0.0,
-			 0.0, -1.0,  0.0,
-			 0.0, -1.0,  0.0
-		];
-		var texCoords = [
-			// +z
-			0.0,  1.0,
-			1.0,  1.0,
-			1.0,  0.0,
-			0.0,  0.0,
-			// -x
-			0.0,  1.0,
-			1.0,  1.0,
-			1.0,  0.0,
-			0.0,  0.0,
-			// -z
-			0.0,  1.0,
-			1.0,  1.0,
-			1.0,  0.0,
-			0.0,  0.0,
-			// +x
-			0.0,  1.0,
-			1.0,  1.0,
-			1.0,  0.0,
-			0.0,  0.0,
-			// +y
-			0.0,  1.0,
-			1.0,  1.0,
-			1.0,  0.0,
-			0.0,  0.0,
-			// -y
-			0.0,  1.0,
-			1.0,  1.0,
-			1.0,  0.0,
-			0.0,  0.0
-		];
+		if (!verticesOnly) {
+			var normals = [
+				// +z
+				 0.0,  0.0,  1.0,
+				 0.0,  0.0,  1.0,
+				 0.0,  0.0,  1.0,
+				 0.0,  0.0,  1.0,
+				// -x
+				-1.0,  0.0,  0.0,
+				-1.0,  0.0,  0.0,
+				-1.0,  0.0,  0.0,
+				-1.0,  0.0,  0.0,
+				// -z
+				 0.0,  0.0, -1.0,
+				 0.0,  0.0, -1.0,
+				 0.0,  0.0, -1.0,
+				 0.0,  0.0, -1.0,
+				// +x
+				 1.0,  0.0,  0.0,
+				 1.0,  0.0,  0.0,
+				 1.0,  0.0,  0.0,
+				 1.0,  0.0,  0.0,
+				// +y
+				 0.0,  1.0,  0.0,
+				 0.0,  1.0,  0.0,
+				 0.0,  1.0,  0.0,
+				 0.0,  1.0,  0.0,
+				// -y
+				 0.0, -1.0,  0.0,
+				 0.0, -1.0,  0.0,
+				 0.0, -1.0,  0.0,
+				 0.0, -1.0,  0.0
+			];
+			var texCoords = [
+				// +z
+				0.0,  1.0,
+				1.0,  1.0,
+				1.0,  0.0,
+				0.0,  0.0,
+				// -x
+				0.0,  1.0,
+				1.0,  1.0,
+				1.0,  0.0,
+				0.0,  0.0,
+				// -z
+				0.0,  1.0,
+				1.0,  1.0,
+				1.0,  0.0,
+				0.0,  0.0,
+				// +x
+				0.0,  1.0,
+				1.0,  1.0,
+				1.0,  0.0,
+				0.0,  0.0,
+				// +y
+				0.0,  1.0,
+				1.0,  1.0,
+				1.0,  0.0,
+				0.0,  0.0,
+				// -y
+				0.0,  1.0,
+				1.0,  1.0,
+				1.0,  0.0,
+				0.0,  0.0
+			];
+			
+			this.normalBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
 		
-		gl = glRef;
+			this.texCoordBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+		}
+		
 		Mesh.createElementBuffer(gl); // is is only done once
 		
 		this.vertexBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 		
-		this.normalBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-		
-		this.texCoordBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
-		
 		gl.bindBuffer(gl.ARRAY_BUFFER, null);
 	};
 	
-	this.draw = function(aVertex, aNormal, aTexCoord, uSampler, uTextureMode){
+	this.draw = function(aVertex, aNormal, aTexCoord, uSampler, uUseTexture){
 		// activate vertex buffer
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 		gl.vertexAttribPointer(aVertex, Mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
@@ -174,18 +177,20 @@ function Mesh(gl) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
 			gl.vertexAttribPointer(aTexCoord, Mesh.texCoordItemSize, gl.FLOAT, false, 0, 0);
 		
-			this.texture.bind(uSampler, uTextureMode, 0);
+			this.texture.bind(0);			// bind texture to slot 0
+			gl.uniform1i(uSampler, 0);		// tell sampler that our texture uses slot 0
+			gl.uniform1i(uUseTexture, 1);	// tell shader to use texture
 		} else {
-			gl.disableVertexAttribArray(aTexCoord);
-			gl.uniform1i(uTextureMode, 0);			// tell shader not to use texture
+			//gl.disableVertexAttribArray(aTexCoord);
+			gl.uniform1i(uUseTexture, 0);	// tell shader not to use texture
 		}
 		
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
 		gl.drawElements(gl.TRIANGLES, Mesh.numItems, gl.UNSIGNED_SHORT, 0);
 	};
 	
-	this.setTexture = function(src){
-		this.texture    = new Texture2D(src, gl);
+	this.setTexture = function(src, type){
+		this.texture    = new Texture2D(src, type, gl);
 		this.hasTexture = true;
 	};
 	
@@ -204,9 +209,27 @@ function Mesh(gl) {
 function Skybox(gl) {
 	var self = this;
 	
-	this.loadTextureCube = function(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ){
-		this.texture    = new TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, gl);
+	this.loadTextureCube = function(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type){
+		this.texture    = new TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type, gl);
 		this.hasTexture = true;
+	};
+	
+	// @Override
+	this.draw = function(aVertex, uSamplerCube, uUseTexture){
+		// activate vertex buffer
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+		gl.vertexAttribPointer(aVertex, Mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
+		// activate texture (if available)
+		if (this.hasTexture && this.texture.isLoaded()) {
+			this.texture.bind(1);			// bind texture to slot 1
+			gl.uniform1i(uSamplerCube, 1);	// tell sampler that our texture is in slot 1
+			gl.uniform1i(uUseTexture, 1);	// tell shader to use texture
+		} else {
+			gl.uniform1i(uUseTexture, 0);	// tell shader not to use texture
+		}
+		
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
+		gl.drawElements(gl.TRIANGLES, Mesh.numItems, gl.UNSIGNED_SHORT, 0);
 	};
 	
 	// construction code

@@ -1,3 +1,5 @@
+"use strict";
+
 /// TODO
 // * improve phong-blinn lighting
 
@@ -26,15 +28,23 @@ var Cubunoid = function(id){
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
 	var level     = new Number(0);
 	var levels    = [map1, map2, map3, map4, map5, map6];
+	var textureFormat;
+	var pickingBuffer   = null;
 	var shaderVariables = null; // always stores the variable locations of the current program
-	var animations = {
-		platformRotation: null
+	var extensions = {
+		floatTexture: null
 	};
 	var programs = {
 		standard: null,
 		skybox:   null
 	};
-	var pickingBuffer = null;
+	var animations = {
+		platformRotation: null
+	};
+	var overlays = {
+		errorSignal: null,
+		levelDialog: null
+	};
 	var meshes = { // geometry for game objects
 		skybox:   null,
 		platform: null,
@@ -58,74 +68,126 @@ var Cubunoid = function(id){
 		canvas.height = window.innerHeight;
 	}
 	
+	function loadExtensions() {
+		var ext = gl.getSupportedExtensions();
+		
+		for (var i = 0; i < ext.length; ++i) {
+			console.info("WebGL extension '" + ext[i] + "' is available!");
+			
+			if (ext[i] == "OES_texture_float")
+				extensions.floatTexture = gl.getExtension("OES_texture_float");
+		}
+		
+		if (extensions.floatTexture) {
+			textureFormat = gl.FLOAT; // gl.FLOAT;
+			console.log("Loaded OES_texture_float extension.");
+		} else {
+			textureFormat = gl.UNSIGNED_BYTE;
+			console.warning("Cannot load OES_texture_float extension!");
+		}
+	}
+	
 	this.initGL = function(){
 		adjustCanvasSize();
-		
+
 		gl = WebGLUtils.setupWebGL(canvas, {preserveDrawingBuffer: true}); // option needed for gl.readPixels
 		if (!gl) {
 			window.alert("Fatal error: cannot initialize WebGL context!");
 			return;
 		}
-		
-		gl.clearColor(1.0, 1.0, 1.0, 1.0);
-    	gl.enable(gl.DEPTH_TEST);
-    	//gl.enable(gl.TEXTURE_CUBE_MAP_SEAMLESS);
-    	
+
+		loadExtensions();
+
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		gl.enable(gl.DEPTH_TEST);
+		gl.depthFunc(gl.LEQUAL);
+		//gl.enable(gl.TEXTURE_CUBE_MAP_SEAMLESS);
+
 		//gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 		//gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
-    	
+		gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST); // tell WebGL to create nice mipmaps (does not work with firefox)
+
+		checkErrors(gl, "Cubunoid::initGL()");
+
 		input = new InputManager(this.eventHandler, this.mouseHandler, this.pickHandler);
-		pickingBuffer = new FrameBuffer(gl, canvas.width, canvas.height);
+		pickingBuffer = new FrameBuffer(gl, canvas.width, canvas.height, gl.DEPTH_COMPONENT16, textureFormat);
 		pickingBuffer.pickX = pickingBuffer.pickY = 0;
-		
+
 		window.addEventListener("resize", this.resizeGL, false);
 	};
 	
-	this.initShaders = function(){
-		var vertexShader   = new Shader(gl, "shader-vs", gl.VERTEX_SHADER);
-		var fragmentShader = new Shader(gl, "shader-fs", gl.FRAGMENT_SHADER);
+	function initStandardProgram() {
+		var vertexShader   = new Shader(gl, "standard-vs", gl.VERTEX_SHADER);
+		var fragmentShader = new Shader(gl, "standard-fs", gl.FRAGMENT_SHADER);
 		
 		vertexShader.compile();
 		fragmentShader.compile();
 		
-		programs.standard  = new Program(gl, vertexShader, fragmentShader);
+		programs.standard = new Program(gl, vertexShader, fragmentShader);
 		programs.standard.link();
 		programs.standard.locations = {
 			aVertex:      programs.standard.getAttribLocation("aVertex"),
 			aNormal:      programs.standard.getAttribLocation("aNormal"),
 			aTexCoord:    programs.standard.getAttribLocation("aTexCoord"),
-			uTextureMode: programs.standard.getUniformLocation("uTextureMode"),
+			uUseTexture:  programs.standard.getUniformLocation("uUseTexture"),
 			uUsePicking:  programs.standard.getUniformLocation("uUsePicking"),
 			uHighlight:   programs.standard.getUniformLocation("uHighlight"),
 			uSampler:     programs.standard.getUniformLocation("uSampler"),
-			uSamplerCube: programs.standard.getUniformLocation("uSamplerCube"),
 			uBoxId:       programs.standard.getUniformLocation("uBoxId"),
 			uNMatrix:     programs.standard.getUniformLocation("uNMatrix"),
 			uMvMatrix:    programs.standard.getUniformLocation("uMvMatrix"),
 			uMvpMatrix:   programs.standard.getUniformLocation("uMvpMatrix")
 		};
-		shaderVariables = programs.standard.locations;
 		
-		programs.standard.use();		
-		gl.enableVertexAttribArray(shaderVariables.aVertex);
-		gl.enableVertexAttribArray(shaderVariables.aNormal);
+		console.log("Compiled standard shaders.");
+	}
+	
+	function initSkyboxProgram() {
+		var vertexShader   = new Shader(gl, "skybox-vs", gl.VERTEX_SHADER);
+		var fragmentShader = new Shader(gl, "skybox-fs", gl.FRAGMENT_SHADER);
+		
+		vertexShader.compile();
+		fragmentShader.compile();
+		
+		programs.skybox = new Program(gl, vertexShader, fragmentShader);
+		programs.skybox.link();
+		programs.skybox.locations = {
+			aVertex:      programs.skybox.getAttribLocation("aVertex"),
+			uUseTexture:  programs.skybox.getUniformLocation("uUseTexture"),
+			uSamplerCube: programs.skybox.getUniformLocation("uSamplerCube"),
+			uMvpMatrix:   programs.skybox.getUniformLocation("uMvpMatrix")
+		};
+		
+		console.log("Compiled skybox shaders.");
+	}
+	
+	this.initShaders = function(){
+		initStandardProgram();
+		initSkyboxProgram();
 	};
 	
 	this.initOverlays = function() {
-		var levelDialog = document.querySelector("#levelDialog");
-		var errorSignal = document.querySelector("#error_signal");
 		var transEndFunc = function(e){
 			if (e.target.className == "fadeOut") {
-				e.target.zIndex = 1;
-				console.log("faded out.");
+				document.body.removeChild(e.target);
 			}
 		};
 		
-		levelDialog.addEventListener("transitionend", transEndFunc, false);
-		levelDialog.addEventListener("webkitTransitionEnd", transEndFunc, false);
+		overlays.levelDialog         = document.createElement("div");
+		overlays.levelDialog.id      = "levelDialog";
+		overlays.levelDialog.textBox = document.createElement("p");
+		overlays.levelDialog.button  = document.createElement("button");
+		overlays.levelDialog.appendChild(overlays.levelDialog.textBox);
+		overlays.levelDialog.appendChild(overlays.levelDialog.button);
 		
-		errorSignal.addEventListener("transitionend", transEndFunc, false);
-		errorSignal.addEventListener("webkitTransitionEnd", transEndFunc, false);
+		overlays.errorSignal    = document.createElement("div");
+		overlays.errorSignal.id = "errorSignal";
+		
+		overlays.levelDialog.addEventListener("transitionend", transEndFunc, false);
+		overlays.levelDialog.addEventListener("webkitTransitionEnd", transEndFunc, false);
+		
+		overlays.errorSignal.addEventListener("transitionend", transEndFunc, false);
+		overlays.errorSignal.addEventListener("webkitTransitionEnd", transEndFunc, false);
 	};
 	
 	this.resizeGL = function(){
@@ -141,7 +203,8 @@ var Cubunoid = function(id){
 	var uploadMatrices = function(modelView, calcNM){
 		// calculate model-view-projection matrix
 		mat4.multiply(pMatrix, modelView, mvpMatrix);
-		gl.uniformMatrix4fv(shaderVariables.uMvMatrix, false, modelView);
+		if (shaderVariables.uMvMatrix)
+			gl.uniformMatrix4fv(shaderVariables.uMvMatrix, false, modelView);
 		gl.uniformMatrix4fv(shaderVariables.uMvpMatrix, false, mvpMatrix);
 		// calculate normal matrix
 		if (calcNM) {
@@ -158,13 +221,21 @@ var Cubunoid = function(id){
 		// highlight object if it is selected
 		gl.uniform1i(shaderVariables.uHighlight, obj.selected ? 1 : 0);
 		
-		obj.mesh.draw(
-			shaderVariables.aVertex,
-			shaderVariables.aNormal,
-			shaderVariables.aTexCoord,
-			(obj.name == "skybox") ? shaderVariables.uSamplerCube : shaderVariables.uSampler,
-			shaderVariables.uTextureMode
-		);
+		if (obj == objects.skybox) {
+			obj.mesh.draw(
+				shaderVariables.aVertex,
+				shaderVariables.uSamplerCube,
+				shaderVariables.uUseTexture
+			);
+		} else {
+			obj.mesh.draw(
+				shaderVariables.aVertex,
+				shaderVariables.aNormal,
+				shaderVariables.aTexCoord,
+				shaderVariables.uSampler,
+				shaderVariables.uUseTexture
+			);
+		}
 	};
 	
 	var drawPlatform = function(){
@@ -204,6 +275,30 @@ var Cubunoid = function(id){
 		}
 	};
 	
+	function deactivateProgram(program) {
+		if (program == programs.skybox) {
+			gl.disableVertexAttribArray(shaderVariables.aVertex);
+		} else {
+			gl.disableVertexAttribArray(shaderVariables.aVertex);
+			gl.disableVertexAttribArray(shaderVariables.aNormal);
+			gl.disableVertexAttribArray(shaderVariables.aTexCoord);
+		}
+		
+		shaderVariables = null;
+	}
+	
+	function activateProgram(program) {
+		program.use();
+		shaderVariables = program.locations;
+		
+		if (program == programs.skybox) {
+			gl.enableVertexAttribArray(shaderVariables.aVertex);
+		} else {
+			gl.enableVertexAttribArray(shaderVariables.aVertex);
+			gl.enableVertexAttribArray(shaderVariables.aNormal);
+		}
+	}
+	
 	var paintGL = function(){
 		if (active) {
 			window.requestAnimFrame(paintGL);
@@ -217,8 +312,11 @@ var Cubunoid = function(id){
 		mat4.rotate(mvMatrix, rotX, [1.0, 0.0, 0.0]);
 		mat4.rotate(mvMatrix, rotZ, [0.0, 0.0, 1.0]);
 		
+		// activate standard program
+		activateProgram(programs.standard);
 		// activate or deactivate picking
 		gl.uniform1i(shaderVariables.uUsePicking, picking ? 1 : 0);
+		
 		if (picking) {
 			var pickID; // Uint8Array(4)
 			
@@ -236,7 +334,6 @@ var Cubunoid = function(id){
 			// unbind framebuffer und disable picking
 			pickingBuffer.unbind();
 			picking = false;
-			//active = false;
 		} else {
 			// clear framebuffer
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -247,9 +344,11 @@ var Cubunoid = function(id){
 			drawObjects(objects.trigger);
 			// recalculate matrix
 			mat4.identity(mvMatrix);
-			mat4.rotate(mvMatrix, -rotZ, [0.0, 1.0, 0.0]);
-			//mat4.rotate(mvMatrix, -rotX, [1.0, 0.0, 0.0]);
-			drawSkybox(); // draw skybox at last (performance reasons)
+			mat4.rotate(mvMatrix, rotZ, [0.0, 1.0, 0.0]);
+			deactivateProgram(programs.standard);	// deactivate standard program
+			activateProgram(programs.skybox);		// activate skybox program
+			drawSkybox();							// draw skybox at last (performance reasons)
+			deactivateProgram(programs.skybox);		// deactivate skybox program
 		}
 	};
 	
@@ -267,10 +366,8 @@ var Cubunoid = function(id){
 	function rotate(rz, rx) {
 		if (rotZ >= MAX_RAD) {
 			rotZ -= MAX_RAD - rz;
-			//console.log("Hop back to: " + rotZ);
 		} else if (rotZ <= 0.0) {
 			rotZ += MAX_RAD - rz;
-			//console.log("Hop back to: " + rotZ);
 		} else {
 			rotZ += rz;
 		}
@@ -281,8 +378,6 @@ var Cubunoid = function(id){
 			rotX += MAX_RAD - rx;
 		else
 			rotX += rx;
-		
-		//console.log("Rotation: " + rotZ + "rad (" + (rotZ/MAX_RAD*360) + " deg)");
 	}
 	
 	function rotatePlatform() {
@@ -312,30 +407,23 @@ var Cubunoid = function(id){
 	}
 	
 	function showErrorSignal() {
-		var errorSignal = document.querySelector("#error_signal");
-		
-		errorSignal.style.zIndex = 3;			// make container visible
-		errorSignal.className    = "fadeIn";	// start CSS transition
-
-		window.setTimeout(function(){ errorSignal.className = "fadeOut"; }, 700);
+		overlays.errorSignal.className = "fadeIn";	// start CSS transition
+		document.body.appendChild(overlays.errorSignal);
+		window.setTimeout(function(){ overlays.errorSignal.className = "fadeOut"; }, 500); // start fade out animation after a few mss
 	}
 	
 	function showLevelDialog() {
-		var levelDialog = document.querySelector("#levelDialog");
-		var textBox     = levelDialog.getElementsByTagName("p")[0];
-		var button      = levelDialog.getElementsByTagName("button")[0];
-		
 		if (level+1 >= levels.length) {
-			textBox.innerHTML       = "Congratulations!<br />You've mastered all quests!";
-			button.style.visibility = "hidden";
+			overlays.levelDialog.textBox.innerHTML       = "Congratulations!<br />You've mastered all quests!";
+			overlays.levelDialog.button.style.visibility = "hidden";
 		} else {
-			textBox.innerHTML = "Congratulations!<br />You've mastered level " + (level+1) + "!";
-			button.innerHTML  = "Go to level " + (level+2);
-			button.onclick    = nextLevel;
+			overlays.levelDialog.textBox.innerHTML = "Congratulations!<br />You've mastered level " + (level+1) + "!";
+			overlays.levelDialog.button.innerHTML  = "Go to level " + (level+2);
+			overlays.levelDialog.button.onclick    = nextLevel;
 		}
 		
-		levelDialog.style.zIndex = 3; // make container visible
-		levelDialog.className    = "fadeIn";
+		document.body.appendChild(overlays.levelDialog);
+		overlays.levelDialog.className = "fadeIn";
 	}
 	
 	function shiftBox(dir) {
@@ -447,22 +535,23 @@ var Cubunoid = function(id){
 				"textures/terrain_negative_y.png",
 				"textures/terrain_positive_y.png",
 				"textures/terrain_positive_z.png",
-				"textures/terrain_negative_z.png"
+				"textures/terrain_negative_z.png",
+				textureFormat
 			);
 			objects.skybox = new GameObject("skybox", meshes.skybox, 0.0, 0.0, -1);
 		}		
 		// generate other geometry
 		if (!meshes.box) {
 			meshes.box = new Box(gl);
-			meshes.box.setTexture("textures/2_store.jpg");
+			meshes.box.setTexture("textures/2_store.jpg", textureFormat);
 		}
 		if (!meshes.concrete) {
 			meshes.concrete = new Concrete(gl);
-			meshes.concrete.setTexture("textures/ice2.jpg");
+			meshes.concrete.setTexture("textures/ice2.jpg", textureFormat);
 		}
 		if (!meshes.trigger) {
 			meshes.trigger = new Trigger(gl);
-			meshes.trigger.setTexture("textures/24_met.jpg");
+			meshes.trigger.setTexture("textures/24_met.jpg", textureFormat);
 		}
 		if (meshes.platform)
 			meshes.platform.dispose();

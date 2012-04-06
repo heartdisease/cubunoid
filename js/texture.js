@@ -21,7 +21,7 @@ function createFloatTexture(img) {
 	context.drawImage(img, 0, 0);
 	imageData = context.getImageData(0, 0, img.width, img.height);
 	for (var i = 0; i < imageData.data.length; ++i)
-		floatTexture[i] = (imageData.data[i] / 255) * 1.5;
+		floatTexture[i] = (imageData.data[i] / 255) * 1.3;
 	
 	return floatTexture;
 }

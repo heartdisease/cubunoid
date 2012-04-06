@@ -26,7 +26,7 @@ var Cubunoid = function(id){
 	var nMatrix   = mat4.create(); // normal matrix
 	var mvMatrix  = mat4.create(); // model-view matrix
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
-	var level     = new Number(0);
+	var level     = 0;
 	var levels    = [map1, map2, map3, map4, map5, map6];
 	var textureFormat;
 	var pickingBuffer   = null;
@@ -139,6 +139,9 @@ var Cubunoid = function(id){
 			uMvpMatrix:   programs.standard.getUniformLocation("uMvpMatrix")
 		};
 		
+		gl.enableVertexAttribArray(programs.standard.locations.aVertex);
+		gl.enableVertexAttribArray(programs.standard.locations.aNormal);
+		
 		console.log("Compiled standard shaders.");
 	}
 	
@@ -158,6 +161,8 @@ var Cubunoid = function(id){
 			uMvpMatrix:   programs.skybox.getUniformLocation("uMvpMatrix")
 		};
 		
+		gl.enableVertexAttribArray(programs.skybox.locations.aVertex);
+		
 		console.log("Compiled skybox shaders.");
 	}
 	
@@ -165,6 +170,30 @@ var Cubunoid = function(id){
 		initStandardProgram();
 		initSkyboxProgram();
 	};
+	
+	function deactivateProgram(program) {
+		if (program == programs.skybox) {
+			gl.disableVertexAttribArray(shaderVariables.aVertex);
+		} else {
+			gl.disableVertexAttribArray(shaderVariables.aVertex);
+			gl.disableVertexAttribArray(shaderVariables.aNormal);
+			gl.disableVertexAttribArray(shaderVariables.aTexCoord);
+		}
+		
+		shaderVariables = null;
+	}
+	
+	function activateProgram(program) {
+		program.use();
+		shaderVariables = program.locations;
+		
+		/*if (program == programs.skybox) {
+			gl.enableVertexAttribArray(shaderVariables.aVertex);
+		} else {
+			gl.enableVertexAttribArray(shaderVariables.aVertex);
+			gl.enableVertexAttribArray(shaderVariables.aNormal);
+		}*/
+	}
 	
 	this.initOverlays = function() {
 		var transEndFunc = function(e){
@@ -260,7 +289,7 @@ var Cubunoid = function(id){
 			
 			mat4.set(mvMatrix, modelView1);	// copy global model-view matrix
 			mat4.translate(modelView1, [0.0, 0.0, array[0].mesh.depth/2]);
-			for (var i in array) {
+			for (var i = 0; i < array.length; ++i) {
 				// calculate position
 				xOffset = (objects.platform.mesh.width / 2)  - array[i].x - halfBoxSize;
 				yOffset = (objects.platform.mesh.height / 2) - array[i].y - halfBoxSize;
@@ -274,30 +303,6 @@ var Cubunoid = function(id){
 			}
 		}
 	};
-	
-	function deactivateProgram(program) {
-		if (program == programs.skybox) {
-			gl.disableVertexAttribArray(shaderVariables.aVertex);
-		} else {
-			gl.disableVertexAttribArray(shaderVariables.aVertex);
-			gl.disableVertexAttribArray(shaderVariables.aNormal);
-			gl.disableVertexAttribArray(shaderVariables.aTexCoord);
-		}
-		
-		shaderVariables = null;
-	}
-	
-	function activateProgram(program) {
-		program.use();
-		shaderVariables = program.locations;
-		
-		if (program == programs.skybox) {
-			gl.enableVertexAttribArray(shaderVariables.aVertex);
-		} else {
-			gl.enableVertexAttribArray(shaderVariables.aVertex);
-			gl.enableVertexAttribArray(shaderVariables.aNormal);
-		}
-	}
 	
 	var paintGL = function(){
 		if (active) {
@@ -345,10 +350,10 @@ var Cubunoid = function(id){
 			// recalculate matrix
 			mat4.identity(mvMatrix);
 			mat4.rotate(mvMatrix, rotZ, [0.0, 1.0, 0.0]);
-			deactivateProgram(programs.standard);	// deactivate standard program
+			//deactivateProgram(programs.standard);	// deactivate standard program
 			activateProgram(programs.skybox);		// activate skybox program
 			drawSkybox();							// draw skybox at last (performance reasons)
-			deactivateProgram(programs.skybox);		// deactivate skybox program
+			//deactivateProgram(programs.skybox);		// deactivate skybox program
 		}
 	};
 	
@@ -393,9 +398,7 @@ var Cubunoid = function(id){
 	}
 	
 	function nextLevel() {
-		var levelDialog = document.querySelector("#levelDialog");
-		
-		levelDialog.className = "fadeOut";
+		overlays.levelDialog.className = "fadeOut";
 		if (animations.platformRotation)
 			window.clearInterval(animations.platformRotation);
 		rotX = DEFAULT_ROT_X;
@@ -403,7 +406,7 @@ var Cubunoid = function(id){
 		loadMap(++level);
 		input.setLocked(false);
 		
-		console.log("goto next level");
+		console.log("Goto level " + (level + 1));
 	}
 	
 	function showErrorSignal() {

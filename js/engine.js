@@ -1,8 +1,5 @@
 "use strict";
 
-/// TODO
-// * improve phong-blinn lighting
-
 // OpenGL Framebuffers: http://www.swiftless.com/tutorials/opengl/framebuffer.html (!!)
 
 /*const*/ var DEG45_RAD  = Math.PI / 4;
@@ -11,7 +8,7 @@
 /*const*/ var DEG315_RAD = DEG45_RAD * 7;
 /*const*/ var MAX_RAD    = Math.PI * 2;
 
-/*const*/ var DEFAULT_ROT_X = -MAX_RAD/6.0;
+/*const*/ var DEFAULT_ROT_X = -MAX_RAD/11.0;
 /*const*/ var DEFAULT_ROT_Z = 0.0;
 
 var Cubunoid = function(id){

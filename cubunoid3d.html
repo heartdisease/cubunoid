@@ -34,7 +34,7 @@
 			
 			void main(void) {
 				vNormal = normalize((uNMatrix * vec4(aNormal, 1.0)).xyz);
-				vEye    = normalize((uNMatrix * vec4(eyePos, 1.0)).xyz);
+				vEye    = normalize(eyePos);
 				
 				if (uUseTexture)
 					vTexCoord = aTexCoord;
@@ -46,45 +46,84 @@
 			// http://www.opengl.org/sdk/docs/tutorials/ClockworkCoders/lighting.php			
 			precision highp float;
 			
+			float PI = 3.1415926535;
+			
 			struct LightSource {
-				vec4 ambient;
-				vec4 diffuse;
-				vec4 specular;
+				vec3 ambient;
+				vec3 diffuse;
+				vec3 specular;
 				vec3 position;
 			};
 			
 			struct Material {
-				vec4 ambient;
-				vec4 diffuse;
-				vec4 specular;
+				vec3 ambient;
+				vec3 diffuse;
+				vec3 specular;
 				float shininess;
 			};
 			
 			LightSource light0 = LightSource(
-				vec4(1.0, 1.0, 1.0, 1.0),
-				vec4(0.7, 0.7, 0.7, 1.0),
-				vec4(1.0, 1.0, 1.0, 1.0),
-				vec3(0.0, 0.0, 3.0)
+				vec3(0.7, 0.7, 0.7),
+				vec3(0.9, 0.9, 0.9),
+				vec3(1.8, 1.8, 1.8),
+				vec3(1.0, 0.0, 5.0)
 			);
 			
 			Material mat = Material(
-				vec4(0.5, 0.5, 0.5, 1.0),
-				vec4(0.8, 0.8, 0.8, 1.0),
-				vec4(1.0, 1.0, 1.0, 1.0),
-				200.0
+				vec3(0.6, 0.6, 0.6),
+				vec3(0.8, 0.8, 0.8),
+				vec3(1.0, 1.0, 1.0),
+				40.0
 			);
 			
 			vec4 phong(vec4 color, vec3 normal, vec3 eyePos) {
-				vec3 normPos      = normalize(light0.position);
-				float LambertTerm = dot(normal, normPos);
-				vec3 reflection   = reflect(-normPos, normal);
+				vec3  L = normalize(light0.position);
+				vec3  N = normal; // should be already normalized
+				vec3  R = reflect(-L, N);
+				vec3  V = normalize(eyePos);
+				float n = mat.shininess;
 				
-				vec4 Ia = light0.ambient * mat.ambient;
-				vec4 Id = light0.diffuse * mat.diffuse * LambertTerm; // light0.diffuse * mat.diffuse * LambertTerm
-				vec4 Is = mat.specular * light0.specular * pow(max(dot(reflection, eyePos), 0.0), mat.shininess);
-				vec4 If = color * (Ia + Id + Is);
+				vec3 I_in_a = light0.ambient;
+				vec3 I_in_d = light0.diffuse;
+				vec3 I_in_s = light0.specular;
 				
-				return vec4(If.rgb, color.a);
+				vec3 k_ambient  = mat.ambient;
+				vec3 k_diffuse  = mat.diffuse;
+				vec3 k_specular = mat.specular; // l:62
+				
+				float normFactor = (n + 2.0) / (2.0 * PI);
+				
+				vec3 I_ambient  = I_in_a * k_ambient;
+				vec3 I_diffuse  = I_in_d * k_diffuse * dot(L, N);
+				vec3 I_specular = I_in_s * k_specular * normFactor * pow(max(dot(R, V), 0.0), n);
+				vec3 I_out      = I_ambient + I_diffuse + I_specular;
+				
+				return vec4(I_out * color.rgb, color.a);
+			}
+			
+			vec4 blinn_phong(vec4 color, vec3 normal, vec3 eyePos) {
+				vec3  L = normalize(light0.position);
+				vec3  N = normal; // should be already normalized
+				float V = length(eyePos);
+				vec3  H = (V + L) / length(V + L); //l:78
+				float n = mat.shininess;
+				
+				vec3 I_in_a = light0.ambient;
+				vec3 I_in_d = light0.diffuse;
+				vec3 I_in_s = light0.specular;
+				
+				vec3 k_ambient  = mat.ambient;
+				vec3 k_diffuse  = mat.diffuse;
+				vec3 k_specular = mat.specular;
+				
+				float cos_theta = dot(N, H);
+				
+				vec3 I_ambient  = I_in_a * k_ambient;
+				vec3 I_diffuse  = I_in_d * k_diffuse * dot(L, N);
+				vec3 I_specular = I_in_s * k_specular * pow(cos_theta, n);
+				vec3 I_out      = I_ambient + I_diffuse + I_specular;
+				
+				return vec4(I_out * color.rgb, color.a);
 			}
 		</script>
 		<script id="standard-fs" type="x-shader/x-fragment">
@@ -121,7 +160,7 @@
 					vec4 color = uUseTexture ? texture2D(uSampler, vTexCoord) : DEFAULT_COLOR;
 					if (uHighlight)
 						color *= vec4(10.0, 1.1, 1.1, 1.0);
-					gl_FragColor = phong(color, vNormal, vEye);
+					gl_FragColor = blinn_phong(color, vNormal, vEye);
 				}
 			}
 		</script>

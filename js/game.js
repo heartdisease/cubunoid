@@ -8,5 +8,5 @@ window.onload = function() {
 	game.initOverlays();
 	game.resizeGL();
 	game.initShaders();
-	game.loadMap(0);
+	game.loadMap(5);
 };

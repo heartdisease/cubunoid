@@ -1,39 +1,16 @@
 "use strict";
 
-var GameObject = function(name, mesh, x, y, i){
+function GameObject(name, mesh, x, y, i) {
 	this.name     = name;
 	this.mesh     = mesh;
 	this.x        = x;
 	this.y        = y;
 	this.selected = false;
 	this.colorID  = new Float32Array([0.0, 0.0, (i == -1) ? 0.0 : (0.1+i*0.1), 1.0]); // allows only 10 different IDs
-};
+}
 
 function Mesh(gl) {
-	Mesh.numItems         = 36; // 6 vertices for each face (6)
-	Mesh.vertexItemSize   = 3;
-	Mesh.normalItemSize   = 3;
-	Mesh.texCoordItemSize = 2;
-	Mesh.elementBuffer    = null;
-	Mesh.createElementBuffer = function(gl) {
-		if (!Mesh.elementBuffer) {
-			 var elements = [
-			 	 0,  1,  2,    0,  2,  3, // +z
-			 	 4,  5,  6,    4,  6,  7, // -x
-			 	 8,  9, 10,    8, 10, 11, // -z
-			 	12, 13, 14,   12, 14, 15, // +x
-			 	16, 17, 18,   16, 18, 19, // +y
-			 	20, 21, 22,   20, 22, 23  // -y
-			 ];
-			 
-			 Mesh.elementBuffer = gl.createBuffer();
-			 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
-			 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(elements), gl.STATIC_DRAW);
-			 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-		}
-	};
-	
-	var gl;
+	var self = this;
 	
 	this.width;
 	this.height;
@@ -44,8 +21,8 @@ function Mesh(gl) {
 	this.texCoordBuffer;
 	this.hasTexture;
 	
-	this.generateGeometry = function(glRef, geometry, verticesOnly) {
-		gl = glRef;
+	function generateGeometry(geometry, verticesOnly) {		
+		console.info("genGeom: " + gl);
 		
 		var vertices = [
 			// +z
@@ -145,39 +122,39 @@ function Mesh(gl) {
 				0.0,  0.0
 			];
 			
-			this.normalBuffer = gl.createBuffer();
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+			self.normalBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, self.normalBuffer);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
 		
-			this.texCoordBuffer = gl.createBuffer();
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+			self.texCoordBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, self.texCoordBuffer);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
 		}
 		
 		Mesh.createElementBuffer(gl); // is is only done once
 		
-		this.vertexBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+		self.vertexBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.vertexBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 		
 		gl.bindBuffer(gl.ARRAY_BUFFER, null);
-	};
+	}
 	
-	this.draw = function(aVertex, aNormal, aTexCoord, uSampler, uUseTexture){
+	function draw(aVertex, aNormal, aTexCoord, uSampler, uUseTexture) {
 		// activate vertex buffer
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.vertexBuffer);
 		gl.vertexAttribPointer(aVertex, Mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
 		// activate normal buffer
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.normalBuffer);
 		gl.vertexAttribPointer(aNormal, Mesh.normalItemSize, gl.FLOAT, false, 0, 0);
 		// activate texture (if available)
-		if (this.hasTexture && this.texture.isLoaded()) {
+		if (self.hasTexture && self.texture.isLoaded()) {
 			gl.enableVertexAttribArray(aTexCoord);	// activate texcoord buffer
 		
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, self.texCoordBuffer);
 			gl.vertexAttribPointer(aTexCoord, Mesh.texCoordItemSize, gl.FLOAT, false, 0, 0);
 		
-			this.texture.bind(0);			// bind texture to slot 0
+			self.texture.bind(0);			// bind texture to slot 0
 			gl.uniform1i(uSampler, 0);		// tell sampler that our texture uses slot 0
 			gl.uniform1i(uUseTexture, 1);	// tell shader to use texture
 		} else {
@@ -187,52 +164,56 @@ function Mesh(gl) {
 		
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
 		gl.drawElements(gl.TRIANGLES, Mesh.numItems, gl.UNSIGNED_SHORT, 0);
-	};
+	}
 	
-	this.setTexture = function(src, type){
-		this.texture    = new Texture2D(src, type, gl);
-		this.hasTexture = true;
-	};
+	function setTexture(src, type) {
+		self.texture    = new Texture2D(gl, src, type);
+		self.hasTexture = true;
+	}
 	
 	/** Frees all WebGL resources (except textures!) */
-	this.dispose = function(){
-		gl.deleteBuffer(this.vertexBuffer);
-		gl.deleteBuffer(this.normalBuffer);
-		gl.deleteBuffer(this.texCoordBuffer);
-	};
+	function dispose() {
+		gl.deleteBuffer(self.vertexBuffer);
+		gl.deleteBuffer(self.normalBuffer);
+		gl.deleteBuffer(self.texCoordBuffer);
+	}
 	
-	// construction code
-	this.hasTexture = false;
+	// public variables
+	this.hasTexture       = false;
+	// public member functions
+	this.generateGeometry = generateGeometry;
+	this.setTexture       = setTexture;
+	this.draw             = draw;
+	this.dispose          = dispose;
+}
+Mesh.numItems            = 36; // 6 vertices for each face (6)
+Mesh.vertexItemSize      = 3;
+Mesh.normalItemSize      = 3;
+Mesh.texCoordItemSize    = 2;
+Mesh.elementBuffer       = null;
+Mesh.createElementBuffer = function(gl) {
+	if (!Mesh.elementBuffer) {
+		 var elements = [
+		 	 0,  1,  2,    0,  2,  3, // +z
+		 	 4,  5,  6,    4,  6,  7, // -x
+		 	 8,  9, 10,    8, 10, 11, // -z
+		 	12, 13, 14,   12, 14, 15, // +x
+		 	16, 17, 18,   16, 18, 19, // +y
+		 	20, 21, 22,   20, 22, 23  // -y
+		 ];
+		 
+		 Mesh.elementBuffer = gl.createBuffer();
+		 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
+		 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(elements), gl.STATIC_DRAW);
+		 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+	}
 };
 
 /** class Skybox */
-function Skybox(gl) {
-	var self = this;
+function Skybox(gl, srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type) {
+	Mesh.call(this, gl);
 	
-	this.loadTextureCube = function(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type){
-		this.texture    = new TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type, gl);
-		this.hasTexture = true;
-	};
-	
-	// @Override
-	this.draw = function(aVertex, uSamplerCube, uUseTexture){
-		// activate vertex buffer
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-		gl.vertexAttribPointer(aVertex, Mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
-		// activate texture (if available)
-		if (this.hasTexture && this.texture.isLoaded()) {
-			this.texture.bind(1);			// bind texture to slot 1
-			gl.uniform1i(uSamplerCube, 1);	// tell sampler that our texture is in slot 1
-			gl.uniform1i(uUseTexture, 1);	// tell shader to use texture
-		} else {
-			gl.uniform1i(uUseTexture, 0);	// tell shader not to use texture
-		}
-		
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
-		gl.drawElements(gl.TRIANGLES, Mesh.numItems, gl.UNSIGNED_SHORT, 0);
-	};
-	
-	// construction code
+	var self     = this;
 	var size     = 100.0;  // width = height
 	var halfSize = size / 2;
 	var geometry = [
@@ -248,19 +229,42 @@ function Skybox(gl) {
 		[-halfSize, -halfSize, -halfSize]
 	];
 	
+	// @Override
+	function draw(aVertex, uSamplerCube, uUseTexture) {
+		// activate vertex buffer
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.vertexBuffer);
+		gl.vertexAttribPointer(aVertex, Mesh.vertexItemSize, gl.FLOAT, false, 0, 0);
+		// activate texture (if available)
+		if (self.hasTexture && self.texture.isLoaded()) {
+			self.texture.bind(1);			// bind texture to slot 1
+			gl.uniform1i(uSamplerCube, 1);	// tell sampler that our texture is in slot 1
+			gl.uniform1i(uUseTexture, 1);	// tell shader to use texture
+		} else {
+			gl.uniform1i(uUseTexture, 0);	// tell shader not to use texture
+		}
+		
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Mesh.elementBuffer);
+		gl.drawElements(gl.TRIANGLES, Mesh.numItems, gl.UNSIGNED_SHORT, 0);
+	}
+	
+	// public variables
 	this.width  = size;
 	this.height = size;
 	this.depth  = size;
+	// public member functions
+	this.draw   = draw;
 	
-	this.generateGeometry(gl, geometry, true);
+	// construction code
+	this.texture    = new TextureCubeMap(gl, srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type);
+	this.hasTexture = true;
+	
+	this.generateGeometry(geometry, true);
 }
 Skybox.prototype = new Mesh();
 Skybox.prototype.constructor = Skybox;
 
-var Platform = function(gl, width, height){	
-	this.width  = width;
-	this.height = height;
-	this.depth  = depth;
+function Platform(gl, width, height){	
+	Mesh.call(this, gl);
 	
 	var halfWidth  = width/2;
 	var halfHeight = height/2;
@@ -277,13 +281,20 @@ var Platform = function(gl, width, height){
 		[ halfWidth, -halfHeight, -depth],
 		[-halfWidth, -halfHeight, -depth]
 	];
+	
+	// construction code
+	this.width  = width;
+	this.height = height;
+	this.depth  = depth;
 
-	this.generateGeometry(gl, geometry, false);
-};
+	this.generateGeometry(geometry, false);
+}
 Platform.prototype = new Mesh();
 Platform.prototype.constructor = Platform;
 
-var Box = function(gl){	
+function Box(gl){	
+	Mesh.call(this, gl);
+	
 	// construction code
 	var size     = 1.0;  // with = height
 	var halfSize = size / 2;
@@ -304,12 +315,14 @@ var Box = function(gl){
 	this.height = size;
 	this.depth  = size;
 	
-	this.generateGeometry(gl, geometry, false);
-};
+	this.generateGeometry(geometry, false);
+}
 Box.prototype = new Mesh();
 Box.prototype.constructor = Box;
 
-var Concrete = function(gl){
+function Concrete(gl) {
+	Mesh.call(this, gl);
+	
 	var size      = 1.0; // with = height
 	var depth     = 0.1; // z-axis
 	var halfSize  = size / 2;
@@ -331,12 +344,14 @@ var Concrete = function(gl){
 	this.height = size;
 	this.depth  = depth;
 	
-	this.generateGeometry(gl, geometry, false);
-};
+	this.generateGeometry(geometry, false);
+}
 Concrete.prototype = new Mesh();
 Concrete.prototype.constructor = Concrete;
 
-var Trigger = function(gl){	
+function Trigger(gl) {	
+	Mesh.call(this, gl);
+	
 	var size        = 1.0; // with = height
 	var depth       = 0.1; // z-axis
 	var halfSize    = size / 2;
@@ -359,8 +374,8 @@ var Trigger = function(gl){
 	this.height = size;
 	this.depth  = depth;
 	
-	this.generateGeometry(gl, geometry, false);
-};
+	this.generateGeometry(geometry, false);
+}
 Trigger.prototype = new Mesh();
 Trigger.prototype.constructor = Trigger;
 	

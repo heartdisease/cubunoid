@@ -349,7 +349,7 @@ var Cubunoid = function(id){
 			mat4.rotate(mvMatrix, rotZ, [0.0, 1.0, 0.0]);
 			//deactivateProgram(programs.standard);	// deactivate standard program
 			activateProgram(programs.skybox);		// activate skybox program
-			drawSkybox();							// draw skybox at last (performance reasons)
+			drawSkybox();							// draw skybox at last for performance reasons
 			//deactivateProgram(programs.skybox);		// deactivate skybox program
 		}
 	};
@@ -527,9 +527,8 @@ var Cubunoid = function(id){
 	function loadGeometry(map) {
 		// generate skybox
 		if (!meshes.skybox) {
-			meshes.skybox = new Skybox(gl);
-			// had to swap neg.Y with pos.Y
-			meshes.skybox.loadTextureCube(
+			meshes.skybox = new Skybox( // had to swap neg.Y with pos.Y
+				gl, 
 				"textures/terrain_positive_x.png",
 				"textures/terrain_negative_x.png",
 				"textures/terrain_negative_y.png",

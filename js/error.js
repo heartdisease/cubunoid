@@ -1,5 +1,9 @@
 "use strict";
 
+/**
+ * Returns true if an error has been detected and
+ * prints a message to the console.
+*/
 function checkErrors(gl, funcId) {
 	var err = gl.getError();
 	

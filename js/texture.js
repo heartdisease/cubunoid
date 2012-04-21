@@ -1,87 +1,100 @@
 "use strict";
 
-function Texture() {
-	this.texture;
+function Texture(gl) {
+	var self = this;
 	
-	this.bind;
-	this.isLoaded;
-	this.dispose;
-}
-
-var textureCanvas = document.createElement("canvas");
-
-function createFloatTexture(img) {
-	textureCanvas.width  = img.width;
-	textureCanvas.height = img.height;
+	function createFloatTexture(img) {
+		var imageData;
+		var context;
+		var floatTexture = new Float32Array(img.width * img.height * 4); // 4 channels (RGBA)
+		
+		Texture.textureCanvas.width  = img.width;
+		Texture.textureCanvas.height = img.height;
+		context = Texture.textureCanvas.getContext("2d");
+		
+		context.drawImage(img, 0, 0);
+		imageData = context.getImageData(0, 0, img.width, img.height);
+		for (var i = 0; i < imageData.data.length; ++i)
+			floatTexture[i] = (imageData.data[i] / 255) * 1.3;
 	
-	var imageData;
-	var context       = textureCanvas.getContext("2d");
-	var floatTexture  = new Float32Array(img.width * img.height * 4); // 4 channels (RGBA)
+		return floatTexture;
+	}
 	
-	context.drawImage(img, 0, 0);
-	imageData = context.getImageData(0, 0, img.width, img.height);
-	for (var i = 0; i < imageData.data.length; ++i)
-		floatTexture[i] = (imageData.data[i] / 255) * 1.3;
-	
-	return floatTexture;
-}
-
-function Texture2D(src, type, gl) {
-	var self    = this;
-	var loaded  = false;
-	var image   = new Image();
+	function texImage2D(target, level, internalformat, format, type, image) {
+		if (type == gl.FLOAT) {
+			gl.texImage2D(target, level, internalformat, image.width, image.height, 0, format, type, createFloatTexture(image));
+			if (!checkErrors(gl, "Texture2D::texImage2D(" + image.src + ")"))
+				console.log("Successfully converted '" + image.src + "' to float texture.");
+		} else {
+			gl.texImage2D(target, level, internalformat, format, type, image);
+		}
+	}
 	
 	function isLoaded() {
-		return loaded;
+		return self.loaded;
 	}
 	
 	function dispose() {
 		gl.deleteTexture(self.texture);
 	}
 	
+	// public variables
+	this.texture;
+	this.loaded     = false;
+	// public member functions
+	this.texImage2D = texImage2D;
+	this.isLoaded   = isLoaded;
+	this.dispose    = dispose;
+	this.bind; // bind() is abstract
+}
+Texture.textureCanvas = document.createElement("canvas");
+
+function Texture2D(gl, src, type) {
+	Texture.call(this, gl); // call super constructor
+	
+	var self    = this;
+	var image   = new Image();
+	
 	function bind(unit) {
 		gl.activeTexture(gl.TEXTURE0 + unit);
 		gl.bindTexture(gl.TEXTURE_2D, self.texture);
 	}
 	
-	image.onload = function(){
+	function createTexture() {
 		console.log("Create texture (" + image.width + "x" + image.height + ") ...");
 		
 		gl.bindTexture(gl.TEXTURE_2D, self.texture);
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); //gl.CLAMP_TO_EDGE
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-		if (type == gl.FLOAT) {
-			var floatTexture = createFloatTexture(image);
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, image.width, image.height, 0, gl.RGBA, gl.FLOAT, floatTexture);
-			
-			if (!checkErrors(gl))
-				console.log("Successfully loaded float texture.");
-		} else {
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, type, image);
-		}
-		gl.generateMipmap(gl.TEXTURE_2D);
-		gl.bindTexture(gl.TEXTURE_2D, null);
 		
-		checkErrors(gl, "Texture2D::image.onload()");
+		self.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, type, image);
+		if (!checkErrors(gl, "Texture2D::createTexture()")) {
+			gl.generateMipmap(gl.TEXTURE_2D);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+		
+			if (!checkErrors(gl, "Texture2D::createTexture()")) {
+				console.log("Successfully loaded texture '" + image.src + "'.");
+				self.loaded = true;
+			}
+		}
+	}
 	
-		loaded = true;
-	};
-	image.src = src;
+	this.texture = gl.createTexture();
+	this.bind    = bind;
 	
-	this.texture  = gl.createTexture();
-	this.bind     = bind;
-	this.isLoaded = isLoaded;
-	this.dispose  = dispose;
+	image.onload = createTexture;
+	image.src    = src;
 }
 Texture2D.prototype = new Texture();
 Texture2D.prototype.constructor = Texture2D;
 
-function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type, gl) {
+function TextureCubeMap(gl, srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, type) {
+	Texture.call(this, gl); // call super constructor
+	
 	var self         = this;
-	var loaded       = false;
 	var loadedImages = 0;
 	var images       = {
 		positiveX: new Image(),
@@ -97,26 +110,6 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, ty
 		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
 	}
 	
-	function isLoaded() {
-		return loaded;
-	}
-	
-	function dispose() {
-		gl.deleteTexture(self.texture);
-	}
-	
-	function glTexImage2D(target, level, internalformat, format, type, image) {
-		if (type == gl.FLOAT) {
-			var floatTexture = createFloatTexture(image);
-			
-			gl.texImage2D(target, level, internalformat, image.width, image.height, 0, format, type, floatTexture);
-			if (!checkErrors(gl, "TextureCubeMap::glTexImage2D("+image.src+")"))
-				console.log("Successfully converted '" + image.src + "' to float texture.");
-		} else {
-			gl.texImage2D(target, level, internalformat, format, type, image);
-		}
-	}
-	
 	function generateCubeMap() {
 		gl.bindTexture(gl.TEXTURE_CUBE_MAP, self.texture);
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -126,24 +119,26 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, ty
 		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		
 		// JS says 'not enough arguments' if image is null!
-		// glTexImage2D() is a customized function which supports float texture conversion
-		glTexImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, type, images.positiveX);
-		glTexImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, type, images.negativeX);
-		glTexImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, type, images.positiveY);
-		glTexImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, type, images.negativeY);
-		glTexImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, type, images.positiveZ);
-		glTexImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, type, images.negativeZ);
+		// Texture.texImage2D() is a customized function which supports float texture conversion
+		self.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, type, images.positiveX);
+		self.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, type, images.negativeX);
+		self.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, type, images.positiveY);
+		self.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, type, images.negativeY);
+		self.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, type, images.positiveZ);
+		self.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, type, images.negativeZ);
 
 		gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
 		
-		checkErrors(gl, "TextureCubeMap::generateCubeMap()");
-		
-		loaded = true;
+		if (!checkErrors(gl, "TextureCubeMap::generateCubeMap()")) {
+			console.log("Successfully loaded cube map!");
+			self.loaded = true;
+		}
 	}
 	
 	function imageLoaded() {
-		console.log("Create cube map texture (" + loadedImages + ") ...");
-		if (++loadedImages == 6) // all textures have been loaded
+		loadedImages++;
+		console.log("Create cube map texture no. " + loadedImages + ".");
+		if (loadedImages == 6) // all textures have been loaded
 			generateCubeMap();
 	}
 	
@@ -152,17 +147,15 @@ function TextureCubeMap(srcPosX, srcNegX, srcPosY, srcNegY, srcPosZ, srcNegZ, ty
 		img.src    = src;
 	}
 	
+	this.texture = gl.createTexture();
+	this.bind    = bind;
+	
 	loadImage(srcPosX, images.positiveX);
 	loadImage(srcNegX, images.negativeX);
 	loadImage(srcPosY, images.positiveY);
 	loadImage(srcNegY, images.negativeY);
 	loadImage(srcPosZ, images.positiveZ);
 	loadImage(srcNegZ, images.negativeZ);
-	
-	this.texture  = gl.createTexture();
-	this.bind     = bind;
-	this.isLoaded = isLoaded;
-	this.dispose  = dispose;
 }
 TextureCubeMap.prototype = new Texture();
 TextureCubeMap.prototype.constructor = TextureCubeMap;

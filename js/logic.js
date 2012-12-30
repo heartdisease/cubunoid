@@ -1,3 +1,23 @@
+/**
+ * This file is part of Cubunoid.
+ * 
+ * Cubunoid is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Cubunoid is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with Cubunoid.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @copyright 2011, 2012 Christoph Matscheko
+ * @license
+*/
+
 "use strict";
 
 var TILE_SIZE = 100;
@@ -49,13 +69,13 @@ var map5 = {
 	concrete : [new Field(3, 4), new Field(1, 2)]
 };
 
-var map6 = {
+/*var map6 = {
 	width :    7,
 	height :   7,
 	switches : [new Field(5, 4)],
 	boxes :    [new Field(0, 0), new Field(2, 0), new Field(0, 6), new Field(2, 6)],
 	concrete : [new Field(3, 0), new Field(3, 1), new Field(3, 2), new Field(3, 4), new Field(3, 5), new Field(3, 6)]
-};
+};*/
 
 var c;
 var level = null;

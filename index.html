@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Cubunoid 1.0b11</title>
+		<title>Cubunoid 1.0b12</title>
 		<script src="js/utils/webgl-utils.js" type="text/javascript"></script>
 		<script src="js/utils/gl-matrix-min.js" type="text/javascript"></script>
 		<script src="js/logic.js" type="text/javascript"></script>
@@ -13,6 +13,26 @@
 		<script src="js/shader.js" type="text/javascript"></script>
 		<script src="js/engine.js" type="text/javascript"></script>
 		<script id="standard-vs" type="x-shader/x-vertex">
+			/**
+			 * This file is part of Cubunoid.
+			 * 
+			 * Cubunoid is free software: you can redistribute it and/or modify
+			 * it under the terms of the GNU General Public License as published by
+			 * the Free Software Foundation, either version 3 of the License, or
+			 * (at your option) any later version.
+			 *
+			 * Cubunoid is distributed in the hope that it will be useful,
+			 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+			 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+			 * GNU General Public License for more details.
+			 * 
+			 * You should have received a copy of the GNU General Public License
+			 * along with Cubunoid.  If not, see <http://www.gnu.org/licenses/>.
+			 *
+			 * @copyright 2011 Christoph Matscheko
+			 * @license
+			*/
+			
 			// Per-Pixel Lighting
 			// http://msdn.microsoft.com/en-us/library/ms810494
 			precision highp float;
@@ -42,6 +62,26 @@
 			}
 		</script>
 		<script id="shader-fs-phong" type="x-shader/x-fragment">
+			/**
+			 * This file is part of Cubunoid.
+			 * 
+			 * Cubunoid is free software: you can redistribute it and/or modify
+			 * it under the terms of the GNU General Public License as published by
+			 * the Free Software Foundation, either version 3 of the License, or
+			 * (at your option) any later version.
+			 *
+			 * Cubunoid is distributed in the hope that it will be useful,
+			 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+			 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+			 * GNU General Public License for more details.
+			 * 
+			 * You should have received a copy of the GNU General Public License
+			 * along with Cubunoid.  If not, see <http://www.gnu.org/licenses/>.
+			 *
+			 * @copyright 2011 Christoph Matscheko
+			 * @license
+			*/
+			
 			// http://www.arcsynthesis.org/gltut/Illumination/Tut11%20BlinnPhong%20Model.html
 			// http://www.opengl.org/sdk/docs/tutorials/ClockworkCoders/lighting.php			
 			precision highp float;
@@ -127,6 +167,26 @@
 			}
 		</script>
 		<script id="standard-fs" type="x-shader/x-fragment">
+			/**
+			 * This file is part of Cubunoid.
+			 * 
+			 * Cubunoid is free software: you can redistribute it and/or modify
+			 * it under the terms of the GNU General Public License as published by
+			 * the Free Software Foundation, either version 3 of the License, or
+			 * (at your option) any later version.
+			 *
+			 * Cubunoid is distributed in the hope that it will be useful,
+			 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+			 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+			 * GNU General Public License for more details.
+			 * 
+			 * You should have received a copy of the GNU General Public License
+			 * along with Cubunoid.  If not, see <http://www.gnu.org/licenses/>.
+			 *
+			 * @copyright 2011 Christoph Matscheko
+			 * @license
+			*/
+			
 			/* from http://games.greggman.com/game/webgl-techniques-and-performance/
 				Question: No WebGL implementation supports multiple render targets. The WebGL spec allows the use of this via
 				gl_FragData[i] and DX9 supports the feature. Why is this not implemented?
@@ -165,6 +225,26 @@
 			}
 		</script>
 		<script id="skybox-vs" type="x-shader/x-vertex">
+			/**
+			 * This file is part of Cubunoid.
+			 * 
+			 * Cubunoid is free software: you can redistribute it and/or modify
+			 * it under the terms of the GNU General Public License as published by
+			 * the Free Software Foundation, either version 3 of the License, or
+			 * (at your option) any later version.
+			 *
+			 * Cubunoid is distributed in the hope that it will be useful,
+			 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+			 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+			 * GNU General Public License for more details.
+			 * 
+			 * You should have received a copy of the GNU General Public License
+			 * along with Cubunoid.  If not, see <http://www.gnu.org/licenses/>.
+			 *
+			 * @copyright 2011 Christoph Matscheko
+			 * @license
+			*/
+			
 			attribute vec3 aVertex;
 
 			uniform mat4 uMvpMatrix;
@@ -177,6 +257,26 @@
 			}
 		</script>
 		<script id="skybox-fs" type="x-shader/x-fragment">
+			/**
+			 * This file is part of Cubunoid.
+			 * 
+			 * Cubunoid is free software: you can redistribute it and/or modify
+			 * it under the terms of the GNU General Public License as published by
+			 * the Free Software Foundation, either version 3 of the License, or
+			 * (at your option) any later version.
+			 *
+			 * Cubunoid is distributed in the hope that it will be useful,
+			 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+			 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+			 * GNU General Public License for more details.
+			 * 
+			 * You should have received a copy of the GNU General Public License
+			 * along with Cubunoid.  If not, see <http://www.gnu.org/licenses/>.
+			 *
+			 * @copyright 2011 Christoph Matscheko
+			 * @license
+			*/
+			
 			precision highp float;
 			
 			vec4 DEFAULT_COLOR = vec4(0.8, 0.8, 0.8, 1.0);
@@ -213,20 +313,20 @@
 				margin-left: -50px;
 				margin-top: -50px;
 				background: url(textures/stop.png);
-				
 				z-index: 2;
 			}
 			
 			#levelDialog {
 				position: absolute;
 				width: 350px;
-				height: 100px;
+				height: auto;
+				min-height: 200px;
 				left: 50%;
 				top: 50%;
 				margin-left: -175px;
-				margin-top: -40px;
+				margin-top: -250px;
 				padding: 20px 20px 20px 20px;
-				background: rgba(120, 120, 120, 0.8);
+				background: rgba(80, 80, 80, 0.85);
 				color: #efefef;
 				font-weight: bold;
 				text-align: center;

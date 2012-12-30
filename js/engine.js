@@ -1,3 +1,23 @@
+/**
+ * This file is part of Cubunoid.
+ * 
+ * Cubunoid is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Cubunoid is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with Cubunoid.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @copyright 2011, 2012 Christoph Matscheko
+ * @license
+*/
+
 "use strict";
 
 // OpenGL Framebuffers: http://www.swiftless.com/tutorials/opengl/framebuffer.html (!!)
@@ -24,7 +44,7 @@ var Cubunoid = function(id){
 	var mvMatrix  = mat4.create(); // model-view matrix
 	var mvpMatrix = mat4.create(); // model-view-projection matrix
 	var level     = 0;
-	var levels    = [map1, map2, map3, map4, map5, map6];
+	var levels    = [map1, map2, map3, map4, map5]; // , map6
 	var textureFormat;
 	var pickingBuffer   = null;
 	var shaderVariables = null; // always stores the variable locations of the current program
@@ -426,6 +446,30 @@ var Cubunoid = function(id){
 		overlays.levelDialog.className = "fadeIn";
 	}
 	
+	function showIntroDialog() {
+		var o = overlays;
+		var i = input;
+		
+		i.setLocked(true); // prevent user from starting the game while intro dialog is still visible
+		
+		o.levelDialog.textBox.innerHTML = '<h2>Welcome to Cubunoid!</h2>' +
+			'<p>This game is about solving levels by activating switches with wooden boxes.</p>' +
+			'<p>Boxes can be selected by clicking them. They can be moved with the arrow keys.</p>' +
+			'<p>Since the ground is solid ice, boxes will glide in the desired direction until they ' +
+			'reach the end of the arena or collide with another box.' +
+			'Try to invent strategies to let one of the boxes come to a halt exactly on the switch.</p>' +
+			'<p>Keep in mind that from the games perspective you are a person pushing around boxes. Sometimes ' +
+			'it may be impossible to move a box because another box is standing where you would be, trying to push the box!</p>';
+		o.levelDialog.button.innerHTML  = 'Let\'s get started';
+		o.levelDialog.button.onclick    = function() {
+			o.levelDialog.className = "fadeOut";
+			i.setLocked(false);
+		};
+		
+		document.body.appendChild(overlays.levelDialog);
+		overlays.levelDialog.className = "fadeIn";
+	}
+	
 	function shiftBox(dir) {
 		var pos;
 		var box;
@@ -599,4 +643,5 @@ var Cubunoid = function(id){
 	}
 	
 	this.loadMap = loadMap;
+	this.showIntroDialog = showIntroDialog;
 };

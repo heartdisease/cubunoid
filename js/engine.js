@@ -17,7 +17,6 @@
  * @copyright 2011, 2012 Christoph Matscheko
  * @license
 */
-
 "use strict";
 
 // OpenGL Framebuffers: http://www.swiftless.com/tutorials/opengl/framebuffer.html (!!)
@@ -31,8 +30,8 @@
 /*const*/ var DEFAULT_ROT_X = -MAX_RAD/11.0;
 /*const*/ var DEFAULT_ROT_Z = 0.0;
 
-var Cubunoid = function(id){
-	var canvas    = document.getElementById(id);
+var Cubunoid = function(query){
+	var canvas    = document.querySelector(query);
 	var input     = null;
 	var gl        = null;
 	var active    = false; // true = render loop is currently running
@@ -48,8 +47,10 @@ var Cubunoid = function(id){
 	var textureFormat;
 	var pickingBuffer   = null;
 	var shaderVariables = null; // always stores the variable locations of the current program
-	var extensions = {
-		floatTexture: null
+	var extensions = { // just pro forma, never gets used directly
+		floatTexture: null,
+		oesTextureFloatLinear: null,
+		webglColorBufferFloat: null
 	};
 	var programs = {
 		standard: null,
@@ -86,28 +87,37 @@ var Cubunoid = function(id){
 	}
 	
 	function loadExtensions() {
-		var ext = gl.getSupportedExtensions();
+		var exts = gl.getSupportedExtensions();
 		
-		for (var i = 0; i < ext.length; ++i) {
-			console.info("WebGL extension '" + ext[i] + "' is available!");
+		if (exts.indexOf("OES_texture_float") !== -1) {
+			console.info("WebGL extension 'OES_texture_float' is available!");
 			
-			if (ext[i] == "OES_texture_float")
+			if (exts.indexOf("OES_texture_float_linear") !== -1) {
+				console.info("WebGL extension 'OES_texture_float_linear' is available!");
+				
 				extensions.floatTexture = gl.getExtension("OES_texture_float");
-		}
-		
-		if (extensions.floatTexture) {
-			textureFormat = gl.FLOAT; // gl.FLOAT;
-			console.log("Loaded OES_texture_float extension.");
+				extensions.oesTextureFloatLinear = gl.getExtension("OES_texture_float_linear");
+				extensions.webglColorBufferFloat = gl.getExtension("WEBGL_color_buffer_float");
+				
+				textureFormat = gl.FLOAT;
+				
+				console.log("Loaded 'OES_texture_float' extension.");
+				console.log("Loaded 'OES_texture_float_linear' extension.");
+				console.log("Loaded 'WEBGL_color_buffer_float' extension.");
+			} else {
+				textureFormat = gl.UNSIGNED_BYTE;
+				console.warning("Cannot load 'OES_texture_float_linear' extension!");
+			}			
 		} else {
 			textureFormat = gl.UNSIGNED_BYTE;
-			console.warning("Cannot load OES_texture_float extension!");
+			console.warning("Cannot load 'OES_texture_float' extension!");
 		}
 	}
 	
 	this.initGL = function(){
 		adjustCanvasSize();
 
-		gl = WebGLUtils.setupWebGL(canvas, {preserveDrawingBuffer: true}); // option needed for gl.readPixels
+		gl = canvas.getContext("webgl", {preserveDrawingBuffer: true}); // preserveDrawingBuffer is required for gl.readPixels()
 		if (!gl) {
 			window.alert("Fatal error: cannot initialize WebGL context!");
 			return;
@@ -323,7 +333,7 @@ var Cubunoid = function(id){
 	
 	var paintGL = function(){
 		if (active) {
-			window.requestAnimFrame(paintGL);
+			window.requestAnimationFrame(paintGL);
 		} else {
 			return;
 		}

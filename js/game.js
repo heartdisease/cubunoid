@@ -23,7 +23,7 @@
 var DEBUG = false;
 			
 window.onload = function() {
-	var game = new Cubunoid("glcanvas");
+	var game = new Cubunoid("#glcanvas");
 	game.initGL();
 	game.initOverlays();
 	game.resizeGL();
